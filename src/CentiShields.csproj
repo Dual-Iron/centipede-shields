@@ -2,8 +2,6 @@
 
   <PropertyGroup>
     <TargetFramework>net35</TargetFramework>
-    <Nullable>enable</Nullable>
-    <WarningsAsErrors>nullable</WarningsAsErrors>
     <LangVersion>preview</LangVersion>
   </PropertyGroup>
 
@@ -12,6 +10,9 @@
     <Reference Include="$(References)/UnityEngine.dll" />
     <Reference Include="$(References)/Assembly-CSharp.dll" />
     <Reference Include="$(References)/HOOKS-Assembly-CSharp.dll" />
+    <Reference Include="$(References)/EnumExtender.dll" />
+
+    <Compile Include="../lib/**/*.cs" />
   </ItemGroup>
 
 </Project>
