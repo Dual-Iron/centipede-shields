@@ -18,32 +18,11 @@ public sealed class Plugin : BaseUnityPlugin
 
         reg.ApplyHooks();
 
-        // Creating centi shields
-        On.Room.Update += Room_Update;
+        // Create centi shields when centipedes lose their shells
         On.Room.AddObject += Room_AddObject;
 
-        // Grab/bite protection
+        // Protect the player from grabs while holding a shield
         On.Creature.Grab += Creature_Grab;
-    }
-
-    private void Room_Update(On.Room.orig_Update orig, Room self)
-    {
-        orig(self);
-
-        if (Input.GetKey(KeyCode.LeftControl) && Input.GetKeyDown(KeyCode.T)) {
-            var pos = self.game.Players[0]?.pos;
-
-            if (pos?.room == self.abstractRoom.index) {
-                var abstr = new CentiShieldAbstract(self.world, pos.Value, self.game.GetNewID()) {
-                    hue = 0.5f,
-                    saturation = 1,
-                    scaleX = 1,
-                    scaleY = 1
-                };
-
-                abstr.Spawn();
-            }
-        }
     }
 
     private void Room_AddObject(On.Room.orig_AddObject orig, Room self, UpdatableAndDeletable obj)
