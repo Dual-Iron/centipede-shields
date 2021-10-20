@@ -1,4 +1,4 @@
-﻿using Fisobs;
+﻿using CFisobs;
 using UnityEngine;
 
 namespace CentiShields;
@@ -23,9 +23,10 @@ public sealed class CentiShieldAbstract : AbstractPhysicalObject
     public float saturation;
     public float scaleX;
     public float scaleY;
+    public float damage;
 
     public override string ToString()
     {
-        return this.SaveAsString($"{hue};{saturation};{scaleX};{scaleY}");
+        return this.SaveToString($"{hue};{saturation};{scaleX};{scaleY};{damage}");
     }
 }

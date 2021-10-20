@@ -45,8 +45,57 @@ public sealed class CentiShield : Weapon
         ResetVel(vel.magnitude);
     }
 
+    public void HitEffect(Vector2 impactVelocity)
+    {
+        var num = UnityEngine.Random.Range(3, 8);
+        for (int k = 0; k < num; k++) {
+            Vector2 pos = firstChunk.pos + Custom.DegToVec(Rand * 360f) * 5f * Rand;
+            Vector2 vel = -impactVelocity * -0.1f + Custom.DegToVec(Rand * 360f) * Mathf.Lerp(0.2f, 0.4f, Rand) * impactVelocity.magnitude;
+            room.AddObject(new Spark(pos, vel, new Color(1f, 1f, 1f), null, 10, 170));
+        }
+
+        room.AddObject(new StationaryEffect(firstChunk.pos, new Color(1f, 1f, 1f), null, StationaryEffect.EffectType.FlashingOrb));
+    }
+
+    public void AddDamage(float damage)
+    {
+        Abstr.damage += damage * 0.2f;
+
+        if (Abstr.damage > 1)
+            Abstr.damage = 1;
+    }
+
+    private void Shatter()
+    {
+        var num = UnityEngine.Random.Range(6, 10);
+        for (int k = 0; k < num; k++) {
+            Vector2 pos = firstChunk.pos + Custom.RNV() * 5f * Rand;
+            Vector2 vel = Custom.RNV() * 4f * (1 + Rand);
+            room.AddObject(new Spark(pos, vel, new Color(1f, 1f, 1f), null, 10, 170));
+        }
+
+        float count = 2 + 4 * (Abstr.scaleX + Abstr.scaleY);
+
+        for (int j = 0; j < count; j++) {
+            Vector2 extraVel = Custom.RNV() * UnityEngine.Random.value * (j == 0 ? 3f : 6f);
+
+            room.AddObject(new CentipedeShell(firstChunk.pos, Custom.RNV() * Rand * 15 + extraVel, Abstr.hue, Abstr.saturation, 0.25f, 0.25f));
+        }
+
+        room.PlaySound(SoundID.Weapon_Skid, firstChunk.pos, 0.75f, 1.25f);
+
+        AllGraspsLetGoOfThisObject(true);
+        abstractPhysicalObject.LoseAllStuckObjects();
+        Destroy();
+    }
+
     public override void Update(bool eu)
     {
+        if (Abstr.damage >= 1 && UnityEngine.Random.value < 0.015f) {
+            Shatter();
+            return;
+        }
+
         ChangeCollisionLayer(grabbedBy.Count == 0 ? 2 : 1);
         firstChunk.collideWithTerrain = grabbedBy.Count == 0;
         firstChunk.collideWithSlopes = grabbedBy.Count == 0;
@@ -111,18 +160,7 @@ public sealed class CentiShield : Weapon
         firstChunk.vel = Vector2.zero;
 
         HitEffect(weapon.firstChunk.vel);
-    }
-
-    public void HitEffect(Vector2 impactVelocity)
-    {
-        var num = UnityEngine.Random.Range(3, 8);
-        for (int k = 0; k < num; k++) {
-            Vector2 pos = firstChunk.pos + Custom.DegToVec(Rand * 360f) * 5f * Rand;
-            Vector2 vel = -impactVelocity * -0.1f + Custom.DegToVec(Rand * 360f) * Mathf.Lerp(0.2f, 0.4f, Rand) * impactVelocity.magnitude;
-            room.AddObject(new Spark(pos, vel, new Color(1f, 1f, 1f), null, 10, 170));
-        }
-
-        room.AddObject(new StationaryEffect(firstChunk.pos, new Color(1f, 1f, 1f), null, StationaryEffect.EffectType.FlashingOrb));
+        AddDamage(weapon.HeavyWeapon ? 0.5f : 0.2f);
     }
 
     public override void TerrainImpact(int chunk, IntVector2 direction, float speed, bool firstContact)
@@ -170,9 +208,9 @@ public sealed class CentiShield : Weapon
         }
 
         sLeaser.sprites[0].color = blackColor;
-        sLeaser.sprites[0].scaleY *= 1.175f;
-        sLeaser.sprites[0].scaleX *= 1.175f;
-
+        sLeaser.sprites[0].scaleY *= 1.175f - Abstr.damage * 0.2f;
+        sLeaser.sprites[0].scaleX *= 1.175f - Abstr.damage * 0.2f;
+        
         sLeaser.sprites[1].color = Color.Lerp(Custom.HSL2RGB(Abstr.hue, Abstr.saturation, 0.55f), blackColor, darkness);
 
         if (blink > 0 && Rand < 0.5f) {

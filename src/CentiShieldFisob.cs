@@ -1,4 +1,4 @@
-﻿using Fisobs;
+﻿using CFisobs;
 
 namespace CentiShields;
 
@@ -11,11 +11,13 @@ public sealed class CentiShieldFisob : Fisob
     public override AbstractPhysicalObject Parse(World world, EntitySaveData saveData)
     {
         string[] p = saveData.CustomData.Split(';');
+
         return new CentiShieldAbstract(world, saveData.Pos, saveData.ID) {
-            hue = float.Parse(p[0]),
-            saturation = float.Parse(p[1]),
-            scaleX = float.Parse(p[2]),
-            scaleY = float.Parse(p[3])
+            hue = float.TryParse(p[0], out var h) ? h : 0,
+            saturation = float.TryParse(p[1], out var s) ? s : 1,
+            scaleX = float.TryParse(p[2], out var x) ? x : 1,
+            scaleY = float.TryParse(p[3], out var y) ? y : 1,
+            damage = float.TryParse(p[4], out var r) ? r : 0
         };
     }
 
