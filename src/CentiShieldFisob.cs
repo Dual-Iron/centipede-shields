@@ -6,6 +6,8 @@ public sealed class CentiShieldFisob : Fisob
 {
     public static readonly CentiShieldFisob Instance = new();
 
+    private static readonly CentipedeShieldProperties properties = new();
+
     private CentiShieldFisob() : base("dual_centi_shield") { }
 
     public override AbstractPhysicalObject Parse(World world, EntitySaveData saveData)
@@ -23,7 +25,7 @@ public sealed class CentiShieldFisob : Fisob
 
     public override FisobProperties GetProperties(PhysicalObject forObject)
     {
-        return new CentipedeShieldProperties();
+        return properties;
     }
 
     private sealed class CentipedeShieldProperties : FisobProperties
