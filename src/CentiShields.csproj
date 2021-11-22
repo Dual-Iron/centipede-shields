@@ -1,8 +1,8 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net35</TargetFramework>
-    <LangVersion>preview</LangVersion>
+    <LangVersion>7.3</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -12,7 +12,14 @@
     <Reference Include="$(References)/HOOKS-Assembly-CSharp.dll" />
     <Reference Include="$(References)/EnumExtender.dll" />
 
+    <!--Include all files in `lib` ending with `.cs` as source code.-->
     <Compile Include="../lib/**/*.cs" />
+
+    <!--Include all files in `assets` ending with `.png` as embedded resources. The resource's name is the filename with no extension.-->
+    <EmbeddedResource Include="../assets/*.png">
+      <Visible>false</Visible>
+      <LogicalName>%(Filename)</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
 
 </Project>

@@ -1,52 +1,43 @@
 ﻿using CFisobs;
 
-namespace CentiShields;
-
-public sealed class CentiShieldFisob : Fisob
+namespace CentiShields
 {
-    public static readonly CentiShieldFisob Instance = new();
-
-    private static readonly CentipedeShieldProperties properties = new();
-
-    private CentiShieldFisob() : base("dual_centi_shield") { }
-
-    public override AbstractPhysicalObject Parse(World world, EntitySaveData saveData)
+    sealed class CentiShieldFisob : Fisob
     {
-        string[] p = saveData.CustomData.Split(';');
+        public static readonly CentiShieldFisob Instance = new CentiShieldFisob();
 
-        return new CentiShieldAbstract(world, saveData.Pos, saveData.ID) {
-            hue = float.TryParse(p[0], out var h) ? h : 0,
-            saturation = float.TryParse(p[1], out var s) ? s : 1,
-            scaleX = float.TryParse(p[2], out var x) ? x : 1,
-            scaleY = float.TryParse(p[3], out var y) ? y : 1,
-            damage = float.TryParse(p[4], out var r) ? r : 0
-        };
-    }
+        private static readonly CentipedeShieldProperties properties = new CentipedeShieldProperties();
 
-    public override FisobProperties GetProperties(PhysicalObject forObject)
-    {
-        return properties;
-    }
-
-    private sealed class CentipedeShieldProperties : FisobProperties
-    {
-        public override void CanThrow(Player player, ref bool throwable)
-            => throwable = false;
-
-        public override void GetScavCollectibleScore(Scavenger scavenger, ref int score)
-            => score = 3;
-
-        public override void GetGrabability(Player player, ref Player.ObjectGrabability grabability)
+        private CentiShieldFisob() : base("dual_centi_shield")
         {
-            // The player can only grab one centishield at a time,
-            // but that shouldn't prevent them from grabbing a spear,
-            // so don't use Player.ObjectGrabability.BigOneHand
+            IconColor = new UnityEngine.Color(1f, 0.1f, 0.1f);
+        }
 
-            if (player.grasps.Any(g => g?.grabbed is CentiShield)) {
-                grabability = Player.ObjectGrabability.CantGrab;
-            } else {
-                grabability = Player.ObjectGrabability.OneHand;
+        public override AbstractPhysicalObject Parse(World world, EntitySaveData saveData)
+        {
+            string[] p = saveData.CustomData.Split(';');
+
+            if (p.Length < 5) {
+                p = new string[5];
             }
+
+            return new CentiShieldAbstract(world, saveData.Pos, saveData.ID) {
+                hue = float.TryParse(p[0], out var h) ? h : 0,
+                saturation = float.TryParse(p[1], out var s) ? s : 1,
+                scaleX = float.TryParse(p[2], out var x) ? x : 1,
+                scaleY = float.TryParse(p[3], out var y) ? y : 1,
+                damage = float.TryParse(p[4], out var r) ? r : 0
+            };
+        }
+
+        public override SandboxState GetSandboxState(MultiplayerUnlocks unlocks)
+        {
+            return SandboxState.Unlocked;
+        }
+
+        public override FisobProperties GetProperties(PhysicalObject forObject)
+        {
+            return properties;
         }
     }
 }

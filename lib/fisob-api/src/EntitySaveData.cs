@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Linq;
-using ObjType = AbstractPhysicalObject.AbstractObjectType;
 
 namespace CFisobs
 {
@@ -12,7 +10,7 @@ namespace CFisobs
         /// <summary>
         /// The APO's type.
         /// </summary>
-        public readonly ObjType ObjectType;
+        public readonly AbstractPhysicalObject.AbstractObjectType ObjectType;
 
         /// <summary>
         /// The APO's ID.
@@ -25,11 +23,15 @@ namespace CFisobs
         public readonly WorldCoordinate Pos;
 
         /// <summary>
-        /// Any extra data associated with the APO. This can be an empty string, but not null.
+        /// Any extra data associated with the APO. This can be <see cref="string.Empty"/>, but not <see langword="null"/>.
         /// </summary>
         public readonly string CustomData;
 
-        internal EntitySaveData(ObjType objectType, EntityID id, WorldCoordinate pos, string customData)
+        /// <summary>
+        /// Initializes a new instance of the <see cref="EntitySaveData"/> struct.
+        /// </summary>
+        /// <remarks>Do not use this constructor. Call <see cref="CreateFrom(AbstractPhysicalObject, string)"/> instead.</remarks>
+        internal EntitySaveData(AbstractPhysicalObject.AbstractObjectType objectType, EntityID id, WorldCoordinate pos, string customData)
         {
             ObjectType = objectType;
             ID = id;
@@ -44,13 +46,13 @@ namespace CFisobs
         /// <param name="customData">Extra data associated with the abstract physical object. This data should never contain &lt; characters.</param>
         /// <returns>A new instance of <see cref="EntitySaveData"/>.</returns>
         /// <exception cref="ArgumentException">Thrown when <paramref name="customData"/> contains &lt; characters.</exception>
-        public static EntitySaveData CreateFrom(AbstractPhysicalObject apo, string customData)
+        public static EntitySaveData CreateFrom(AbstractPhysicalObject apo, string customData = "")
         {
             if (customData is null) {
                 throw new ArgumentNullException(nameof(customData));
             }
 
-            if (customData.Contains('<')) {
+            if (customData.IndexOf('<') != -1) {
                 throw new ArgumentException("Custom data cannot contain < characters.");
             }
 
@@ -58,7 +60,7 @@ namespace CFisobs
         }
 
         /// <summary>
-        /// Gets this entity's saved data as a string.
+        /// Gets this entity's save data as a string.
         /// </summary>
         /// <returns>A string representation of this data.</returns>
         public override string ToString()
