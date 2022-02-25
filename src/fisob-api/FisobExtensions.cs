@@ -65,5 +65,31 @@ namespace CFisobs
         {
             return EntitySaveData.CreateFrom(apo, customData).ToString();
         }
+
+        /// <summary>
+        /// Loads an embedded resource named <paramref name="resource"/> into <see cref="Futile.atlasManager"/> if the resource exists.
+        /// </summary>
+        /// <param name="resource">The name of the embedded resource.</param>
+        /// <returns>If the resource was successfully loaded, <see langword="true"/>; otherwise, <see langword="false"/>.</returns>
+        public static bool LoadAtlasFromEmbeddedResource(string resource)
+        {
+            using (System.IO.Stream stream = typeof(Fisob).Assembly.GetManifestResourceStream(resource)) {
+                if (stream == null) {
+                    return false;
+                }
+
+                byte[] image = new byte[stream.Length];
+
+                stream.Read(image, 0, image.Length);
+
+                Texture2D tex = new Texture2D(1, 1);
+
+                tex.LoadImage(image);
+
+                Futile.atlasManager.LoadAtlasFromTexture(resource, tex);
+
+                return true;
+            }
+        }
     }
 }
