@@ -28,7 +28,7 @@ namespace CFisobs
             new FisobRegistry(fisobs).ApplyHooks();
         }
 
-        private readonly Dictionary<string, Fisob> fisobsByID = new Dictionary<string, Fisob>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<ObjType, Fisob> fisobsByType = new Dictionary<ObjType, Fisob>();
 
         /// <summary>
         /// Creates a new fisob registry from the provided set of <see cref="Fisob"/> instances.
@@ -37,16 +37,13 @@ namespace CFisobs
         public FisobRegistry(IEnumerable<Fisob> fisobs)
         {
             var t = typeof(ObjType);
+            var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var names = Enum.GetNames(t);
 
             // Verify fisobs first
             foreach (Fisob fisob in fisobs) {
-                if (fisob.IsInRegistry) {
-                    throw new InvalidOperationException($"The fisob \"{fisob.ID}\" is already in a registry.");
-                }
-
-                if (fisobsByID.ContainsKey(fisob.ID)) {
-                    throw new ArgumentException($"A fisob with the ID \"{fisob.ID}\" is already in this registry.");
+                if (!ids.Add(fisob.ID)) {
+                    throw new InvalidOperationException($"The registry contains multiple fisobs with the ID \"{fisob.ID}\".");
                 }
 
                 if (names.Contains(fisob.ID, StringComparer.OrdinalIgnoreCase)) {
@@ -56,8 +53,6 @@ namespace CFisobs
 
             // Add them to enums
             foreach (Fisob fisob in fisobs) {
-                fisobsByID[fisob.ID] = fisob;
-
                 EnumExtender.AddDeclaration(t, fisob.ID);
             }
 
@@ -65,34 +60,16 @@ namespace CFisobs
 
             // Assign their types
             foreach (Fisob fisob in fisobs) {
-                fisob.Type = (ObjType)Enum.Parse(t, fisob.ID, true);
+                fisobsByType[fisob.Type] = fisob;
             }
         }
-
-        /// <summary>
-        /// Gets a fisob from its ID.
-        /// </summary>
-        /// <returns>The fisob whose ID is <paramref name="id"/>.</returns>
-        /// <exception cref="KeyNotFoundException"/>
-        public Fisob this[string id] => fisobsByID[id];
 
         /// <summary>
         /// Gets a fisob from an object type. This is sugar for <see cref="this[string]"/>.
         /// </summary>
         /// <returns>The fisob whose type is <paramref name="type"/>.</returns>
         /// <exception cref="KeyNotFoundException"/>
-        public Fisob this[ObjType type] => fisobsByID[type.ToString()];
-
-        /// <summary>
-        /// Gets a fisob from its ID.
-        /// </summary>
-        /// <param name="id">The ID of the fisob.</param>
-        /// <param name="fisob">If it exists, the fisob; otherwise, <see langword="null"/>.</param>
-        /// <returns>If the fisob exists, <see langword="true"/>; otherwise, <see langword="false"/>.</returns>
-        public bool TryGet(string id, out Fisob fisob)
-        {
-            return fisobsByID.TryGetValue(id, out fisob);
-        }
+        public Fisob this[ObjType type] => fisobsByType[type];
 
         /// <summary>
         /// Gets a fisob from an object type.
@@ -102,7 +79,7 @@ namespace CFisobs
         /// <returns>If the fisob exists, <see langword="true"/>; otherwise, <see langword="false"/>.</returns>
         public bool TryGet(ObjType type, out Fisob fisob)
         {
-            return fisobsByID.TryGetValue(type.ToString(), out fisob);
+            return fisobsByType.TryGetValue(type, out fisob);
         }
 
         /// <summary>
@@ -148,7 +125,7 @@ namespace CFisobs
         private FisobProperties P(PhysicalObject po)
         {
             if (po is null) return null;
-            if (!fisobsByID.TryGetValue(po.abstractPhysicalObject.type.ToString(), out var f)) return null;
+            if (!fisobsByType.TryGetValue(po.abstractPhysicalObject.type, out var f)) return null;
             return f.GetProperties(po);
         }
 
@@ -163,14 +140,14 @@ namespace CFisobs
         {
             orig(self);
 
-            foreach (var fisob in fisobsByID.Values) {
+            foreach (var fisob in fisobsByType.Values) {
                 fisob.LoadResources(self);
             }
         }
 
         private Color ItemSymbol_ColorForItem(On.ItemSymbol.orig_ColorForItem orig, ObjType itemType, int intData)
         {
-            if (fisobsByID.TryGetValue(itemType.ToString(), out var fisob)) {
+            if (fisobsByType.TryGetValue(itemType, out var fisob)) {
                 return fisob.IconColor;
             }
             return orig(itemType, intData);
@@ -178,7 +155,7 @@ namespace CFisobs
 
         private string ItemSymbol_SpriteNameForItem(On.ItemSymbol.orig_SpriteNameForItem orig, ObjType itemType, int intData)
         {
-            if (fisobsByID.TryGetValue(itemType.ToString(), out var fisob)) {
+            if (fisobsByType.TryGetValue(itemType, out var fisob)) {
                 return fisob.IconName;
             }
             return orig(itemType, intData);
@@ -186,7 +163,7 @@ namespace CFisobs
 
         private void SandboxGameSession_SpawnEntity(On.SandboxGameSession.orig_SpawnEntity orig, SandboxGameSession self, SandboxEditor.PlacedIconData p)
         {
-            if (fisobsByID.TryGetValue(p.data.itemType.ToString(), out var fisob)) {
+            if (fisobsByType.TryGetValue(p.data.itemType, out var fisob)) {
                 WorldCoordinate coord = new WorldCoordinate(0, Mathf.RoundToInt(p.pos.x / 20f), Mathf.RoundToInt(p.pos.y / 20f), -1);
                 EntitySaveData data = new EntitySaveData(p.data.itemType, p.ID, coord, "");
 
@@ -211,7 +188,7 @@ namespace CFisobs
             if (counter == MultiplayerUnlocks.ItemsUnlocks + 3 - 1) {
                 orig(self, button, ref counter);
 
-                foreach (var fisob in fisobsByID.Values) {
+                foreach (var fisob in fisobsByType.Values) {
                     var sandboxState = fisob.GetSandboxState(self.unlocks);
 
                     if (sandboxState == SandboxState.Hidden) continue;
@@ -296,8 +273,9 @@ namespace CFisobs
         private AbstractPhysicalObject SaveState_AbstractPhysicalObjectFromString(On.SaveState.orig_AbstractPhysicalObjectFromString orig, World world, string objString)
         {
             string[] array = objString.Split(new[] { "<oA>" }, StringSplitOptions.None);
+            ObjType type = RWCustom.Custom.ParseEnum<ObjType>(array[1]);
 
-            if (fisobsByID.TryGetValue(array[1], out Fisob o) && array.Length > 2) {
+            if (fisobsByType.TryGetValue(type, out Fisob o) && array.Length > 2) {
                 EntityID id = EntityID.FromString(array[0]);
 
                 string[] coordParts = array[2].Split('.');

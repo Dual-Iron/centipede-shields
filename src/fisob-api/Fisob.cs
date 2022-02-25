@@ -10,23 +10,23 @@ namespace CFisobs
     /// </summary>
     public abstract class Fisob
     {
-        static bool IsValid(char c)
+        static bool IsValidID(char c)
         {
-            return char.IsLetter(c) || c == '_';
+            return c >= 'a' && c <= 'z' || c == '_';
         }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Fisob"/> class.
         /// </summary>
-        /// <param name="id">This fisob's case-insensitive unique identifier. Only ASCII letters and underscores are permitted.</param>
+        /// <param name="id">This fisob's unique identifier. Only lowercase `a-z` and `_` are allowed.</param>
         protected Fisob(string id)
         {
             if (string.IsNullOrEmpty(id)) {
                 throw new ArgumentException("ID cannot be null or empty.");
             }
 
-            if (!id.All(IsValid)) {
-                throw new ArgumentException("ID must only consist of A-Z, a-z, and _.");
+            if (!id.All(IsValidID)) {
+                throw new ArgumentException("ID must only consist of a-z and _.");
             }
 
             ID = id;
@@ -48,25 +48,20 @@ namespace CFisobs
         public Color IconColor { get; protected set; }
 
         /// <summary>
-        /// If this fisob has been added to a <see cref="FisobRegistry"/>, <see langword="true"/>; otherwise, <see langword="false"/>.
-        /// </summary>
-        public bool IsInRegistry => type != null;
-
-        /// <summary>
         /// This fisob's unique identifier.
         /// </summary>
-        public string ID { get; }
+        public readonly string ID;
 
         /// <summary>
         /// This fisob's enum value.
         /// </summary> 
+        /// <exception cref="ArgumentException">Thrown when the fisob has not been added to a registry yet.</exception>
         public AbstractPhysicalObject.AbstractObjectType Type {
-            get => type ?? throw new InvalidOperationException($"The fisob \"{ID}\" hasn't been added to a registry yet.");
-            internal set {
-                if (type == null)
-                    type = value;
-                else
-                    throw new InvalidOperationException($"The fisob \"{ID}\" already has a type.");
+            get {
+                if (type == null) {
+                    type = RWCustom.Custom.ParseEnum<AbstractPhysicalObject.AbstractObjectType>(ID);
+                }
+                return type.Value;
             }
         }
 
