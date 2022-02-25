@@ -16,6 +16,18 @@ namespace CFisobs
     /// <remarks>Users should create one instance of this class and pass it around. After creating a new instance, <see cref="ApplyHooks"/> should be called.</remarks>
     public sealed class FisobRegistry
     {
+        /// <summary>
+        /// Creates a new fisob registry and applies its hooks.
+        /// </summary>
+        /// <remarks>
+        /// This is shorthand for the following: <code>new FisobRegistry(fisobs).ApplyHooks()</code>
+        /// </remarks>
+        /// <exception cref="ArgumentException">Thrown when a fisob can't be added to the registry.</exception>
+        public static void Register(params Fisob[] fisobs)
+        {
+            new FisobRegistry(fisobs).ApplyHooks();
+        }
+
         private readonly Dictionary<string, Fisob> fisobsByID = new Dictionary<string, Fisob>(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>

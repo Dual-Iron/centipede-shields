@@ -9,8 +9,7 @@ namespace CentiShields
     {
         public void OnEnable()
         {
-            new FisobRegistry(new[] { CentiShieldFisob.Instance })
-                .ApplyHooks();
+            FisobRegistry.Register(CentiShieldFisob.Instance);
 
             // Create centi shields when centipedes lose their shells
             On.Room.AddObject += Room_AddObject;
