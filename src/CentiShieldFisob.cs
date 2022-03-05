@@ -7,7 +7,7 @@ namespace CentiShields
     {
         public static readonly CentiShieldFisob Instance = new CentiShieldFisob();
 
-        private static readonly CentipedeShieldProperties properties = new CentipedeShieldProperties();
+        private static readonly CentiShieldProperties properties = new CentiShieldProperties();
 
         private CentiShieldFisob() : base("centipede_shield")
         {

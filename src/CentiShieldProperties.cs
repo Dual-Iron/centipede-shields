@@ -3,7 +3,7 @@ using System.Linq;
 
 namespace CentiShields
 {
-    sealed class CentipedeShieldProperties : FisobProperties
+    sealed class CentiShieldProperties : FisobProperties
     {
         public override void CanThrow(Player player, ref bool throwable)
             => throwable = false;
