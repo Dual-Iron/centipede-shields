@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 
 namespace CFisobs
 {
@@ -16,14 +17,16 @@ namespace CFisobs
             ID = id;
         }
 
-        private AbstractPhysicalObject.AbstractObjectType? type;
-
-        public IFisobIcon Icon;
-
         /// <summary>
         /// This fisob's unique identifier.
         /// </summary>
         public readonly string ID;
+
+        public readonly List<SandboxUnlock> SandboxUnlocks = new List<SandboxUnlock>();
+
+        public IFisobIcon Icon;
+
+        private AbstractPhysicalObject.AbstractObjectType? type;
 
         /// <summary>
         /// This fisob's enum value.
@@ -54,21 +57,14 @@ namespace CFisobs
         public virtual FisobProperties GetProperties(PhysicalObject forObject) => null;
 
         /// <summary>
-        /// Gets how this object should be displayed in sandbox mode.
-        /// </summary>
-        /// <param name="unlocks">The current save's multiplayer unlocks.</param>
-        /// <returns>An instance of <see cref="SandboxState"/>.</returns>
-        public virtual SandboxState GetSandboxState(MultiplayerUnlocks unlocks) => 0;
-
-        /// <summary>
         /// Used to load atlases into <see cref="Futile.atlasManager"/> for later use.
         /// </summary>
         /// <param name="rainWorld">The application instance.</param>
         public virtual void LoadResources(RainWorld rainWorld)
         {
-            if (Icon == null) {
-                string iconName = FisobExtensions.LoadAtlasFromEmbeddedResource($"icon_{ID}") ? $"icon_{ID}" : "Futile_White";
+            string iconName = FisobExtensions.LoadAtlasFromEmbeddedResource($"icon_{ID}") ? $"icon_{ID}" : "Futile_White";
 
+            if (Icon == null) {
                 Icon = new SimpleFisobIcon(iconName, FisobExtensions.DefaultIconColor);
             }
         }

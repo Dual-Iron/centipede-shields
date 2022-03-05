@@ -85,7 +85,7 @@ namespace CFisobs
 
                 stream.Read(image, 0, image.Length);
 
-                Texture2D tex = new Texture2D(1, 1);
+                Texture2D tex = new Texture2D(1, 1) { filterMode = FilterMode.Point };
 
                 tex.LoadImage(image);
 

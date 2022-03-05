@@ -1,10 +1,8 @@
-﻿using static Menu.SandboxEditorSelector;
-using ObjType = AbstractPhysicalObject.AbstractObjectType;
+﻿using ObjType = AbstractPhysicalObject.AbstractObjectType;
 using PastebinMachine.EnumExtender;
 using UnityEngine;
 using System.Collections.Generic;
 using System;
-using ArenaBehaviors;
 
 namespace CFisobs
 {
@@ -12,7 +10,7 @@ namespace CFisobs
     /// Provides methods to register physical object handlers (fisobs) through the <see cref="Fisob"/> type.
     /// </summary>
     /// <remarks>Users should create one instance of this class and pass it around. After creating a new instance, <see cref="ApplyHooks"/> should be called.</remarks>
-    public sealed class FisobRegistry
+    public sealed partial class FisobRegistry
     {
         /// <summary>
         /// Creates a new fisob registry and applies its hooks.
@@ -91,19 +89,23 @@ namespace CFisobs
             return fisobsByType.TryGetValue(type, out fisob);
         }
 
+        bool applied;
+
         /// <summary>
         /// Applies hooks that enable fisob behavior.
         /// </summary>
         public void ApplyHooks()
         {
-            On.Menu.SandboxEditorSelector.ctor += SandboxEditorSelector_ctor;
-            On.RainWorld.LoadResources += RainWorld_LoadResources;
-            On.ItemSymbol.SymbolDataFromItem += ItemSymbol_SymbolDataFromItem;
-            On.ItemSymbol.ColorForItem += ItemSymbol_ColorForItem;
-            On.ItemSymbol.SpriteNameForItem += ItemSymbol_SpriteNameForItem;
-            On.SandboxGameSession.SpawnEntity += SandboxGameSession_SpawnEntity;
-            On.Menu.SandboxEditorSelector.AddButton_Button_refInt32 += SandboxEditorSelector_AddButton_Button_refInt32;
+            if (applied) {
+                return;
+            }
 
+            applied = true;
+
+            ApplySandbox();
+            ApplyIcons();
+
+            On.RainWorld.LoadResources += RainWorld_LoadResources;
             On.Player.IsObjectThrowable += Player_IsObjectThrowable;
             On.Player.Grabability += Player_Grabability;
             On.ScavengerAI.RealWeapon += ScavengerAI_RealWeapon;
@@ -117,14 +119,16 @@ namespace CFisobs
         /// </summary>
         public void UndoHooks()
         {
-            On.Menu.SandboxEditorSelector.ctor -= SandboxEditorSelector_ctor;
-            On.RainWorld.LoadResources -= RainWorld_LoadResources;
-            On.ItemSymbol.SymbolDataFromItem -= ItemSymbol_SymbolDataFromItem;
-            On.ItemSymbol.ColorForItem -= ItemSymbol_ColorForItem;
-            On.ItemSymbol.SpriteNameForItem -= ItemSymbol_SpriteNameForItem;
-            On.SandboxGameSession.SpawnEntity -= SandboxGameSession_SpawnEntity;
-            On.Menu.SandboxEditorSelector.AddButton_Button_refInt32 -= SandboxEditorSelector_AddButton_Button_refInt32;
+            if (!applied) {
+                return;
+            }
 
+            applied = false;
+
+            ApplySandbox();
+            ApplyIcons();
+
+            On.RainWorld.LoadResources -= RainWorld_LoadResources;
             On.Player.IsObjectThrowable -= Player_IsObjectThrowable;
             On.Player.Grabability -= Player_Grabability;
             On.ScavengerAI.RealWeapon -= ScavengerAI_RealWeapon;
@@ -140,102 +144,12 @@ namespace CFisobs
             return f.GetProperties(po);
         }
 
-        private void SandboxEditorSelector_ctor(On.Menu.SandboxEditorSelector.orig_ctor orig, Menu.SandboxEditorSelector self, Menu.Menu menu, Menu.MenuObject owner, SandboxOverlayOwner overlayOwner)
-        {
-            Width = 19;
-            Height = 4;
-            orig(self, menu, owner, overlayOwner);
-        }
-
         private void RainWorld_LoadResources(On.RainWorld.orig_LoadResources orig, RainWorld self)
         {
             orig(self);
 
             foreach (var fisob in fisobsByType.Values) {
                 fisob.LoadResources(self);
-            }
-        }
-
-        private IconSymbol.IconSymbolData? ItemSymbol_SymbolDataFromItem(On.ItemSymbol.orig_SymbolDataFromItem orig, AbstractPhysicalObject item)
-        {
-            if (fisobsByType.TryGetValue(item.type, out var fisob)) {
-                return new IconSymbol.IconSymbolData(0, item.type, fisob.Icon.Data(item));
-            }
-            return orig(item);
-        }
-
-        private Color ItemSymbol_ColorForItem(On.ItemSymbol.orig_ColorForItem orig, ObjType itemType, int intData)
-        {
-            if (fisobsByType.TryGetValue(itemType, out var fisob)) {
-                return fisob.Icon.SpriteColor(intData);
-            }
-            return orig(itemType, intData);
-        }
-
-        private string ItemSymbol_SpriteNameForItem(On.ItemSymbol.orig_SpriteNameForItem orig, ObjType itemType, int intData)
-        {
-            if (fisobsByType.TryGetValue(itemType, out var fisob)) {
-                return fisob.Icon.SpriteName(intData);
-            }
-            return orig(itemType, intData);
-        }
-
-        private void SandboxGameSession_SpawnEntity(On.SandboxGameSession.orig_SpawnEntity orig, SandboxGameSession self, SandboxEditor.PlacedIconData p)
-        {
-            if (fisobsByType.TryGetValue(p.data.itemType, out var fisob)) {
-                WorldCoordinate coord = new WorldCoordinate(0, Mathf.RoundToInt(p.pos.x / 20f), Mathf.RoundToInt(p.pos.y / 20f), -1);
-                EntitySaveData data = new EntitySaveData(p.data.itemType, p.ID, coord, "");
-
-                try {
-                    var entity = fisob.Parse(self.game.world, data);
-                    if (entity != null) {
-                        self.game.world.GetAbstractRoom(0).AddEntity(entity);
-                    } else {
-                        Debug.LogError($"The fisob {fisob.ID} returned null when being parsed in sandbox mode.");
-                    }
-                } catch (Exception e) {
-                    Debug.LogException(e);
-                    Debug.LogError($"The fisob {fisob.ID} threw an exception when being parsed in sandbox mode.");
-                }
-            } else {
-                orig(self, p);
-            }
-        }
-
-        private void SandboxEditorSelector_AddButton_Button_refInt32(On.Menu.SandboxEditorSelector.orig_AddButton_Button_refInt32 orig, Menu.SandboxEditorSelector self, Button button, ref int counter)
-        {
-            if (counter == MultiplayerUnlocks.ItemsUnlocks + 3 - 1) {
-                orig(self, button, ref counter);
-
-                foreach (var fisob in fisobsByType.Values) {
-                    var sandboxState = fisob.GetSandboxState(self.unlocks);
-
-                    if (sandboxState == SandboxState.Hidden) continue;
-
-                    if (counter >= Width * Height - 51) {
-                        self.bkgRect.size.y += ButtonSize;
-                        self.size.y += ButtonSize;
-                        self.pos.y += ButtonSize;
-                        Height += 1;
-
-                        Button[,] newArr = new Button[Width, Height];
-
-                        for (int i = 0; i < Width; i++) {
-                            for (int j = 0; j < Height - 1; j++) {
-                                newArr[i, j + 1] = self.buttons[i, j];
-                            }
-                        }
-
-                        self.buttons = newArr;
-                    }
-
-                    if (sandboxState == SandboxState.Unlocked)
-                        orig(self, new CreatureOrItemButton(self.menu, self, new IconSymbol.IconSymbolData(0, fisob.Type, 0)), ref counter);
-                    else
-                        orig(self, new LockedButton(self.menu, self), ref counter);
-                }
-            } else {
-                orig(self, button, ref counter);
             }
         }
 
