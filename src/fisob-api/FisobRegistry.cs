@@ -1,4 +1,6 @@
 ﻿using ObjType = AbstractPhysicalObject.AbstractObjectType;
+using CritType = CreatureTemplate.Type;
+using UnlockType = MultiplayerUnlocks.SandboxUnlockID;
 using PastebinMachine.EnumExtender;
 using UnityEngine;
 using System.Collections.Generic;
@@ -32,6 +34,7 @@ namespace CFisobs
         }
 
         private readonly Dictionary<ObjType, Fisob> fisobsByType = new Dictionary<ObjType, Fisob>();
+        private readonly Dictionary<CritType, Critob> critobsByType = new Dictionary<CritType, Critob>();
 
         /// <summary>
         /// Creates a new fisob registry from the provided set of <see cref="Fisob"/> instances.
@@ -45,15 +48,30 @@ namespace CFisobs
 
         private static void Verify(IEnumerable<Fisob> fisobs)
         {
-            var ids = new HashSet<string>(Enum.GetNames(typeof(ObjType)), StringComparer.OrdinalIgnoreCase);
+            var objectIDs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            objectIDs.UnionWith(Enum.GetNames(typeof(ObjType)));
+            objectIDs.UnionWith(Enum.GetNames(typeof(CritType)));
+
+            var sandboxIDs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            sandboxIDs.UnionWith(Enum.GetNames(typeof(UnlockType)));
 
             foreach (Fisob fisob in fisobs) {
                 if (!FisobExtensions.IsValidID(fisob.ID)) {
                     throw new InvalidOperationException($"The fisob ID \"{fisob.ID}\" is invalid. Valid IDs must consist of a-z and _.");
                 }
 
-                if (!ids.Add(fisob.ID)) {
-                    throw new InvalidOperationException($"The registry contains multiple fisobs with the ID \"{fisob.ID}\".");
+                if (!objectIDs.Add(fisob.ID)) {
+                    throw new InvalidOperationException($"The fisob ID \"{fisob.ID}\" is already in use.");
+                }
+
+                foreach (SandboxUnlock unlock in fisob.SandboxUnlocks) {
+                    if (!FisobExtensions.IsValidID(unlock.ID)) {
+                        throw new InvalidOperationException($"The sandbox unlock ID \"{fisob.ID}\" is invalid. Valid IDs must consist of a-z and _.");
+                    }
+
+                    if (!sandboxIDs.Add(unlock.ID)) {
+                        throw new InvalidOperationException($"The sandbox unlock ID \"{fisob.ID}\" is already in use.");
+                    }
                 }
             }
         }
@@ -61,13 +79,25 @@ namespace CFisobs
         private void RegisterTypes(IEnumerable<Fisob> fisobs)
         {
             foreach (Fisob fisob in fisobs) {
-                EnumExtender.AddDeclaration(typeof(ObjType), fisob.ID);
+                if (fisob is Critob) {
+                    EnumExtender.AddDeclaration(typeof(CritType), fisob.ID);
+                } else {
+                    EnumExtender.AddDeclaration(typeof(ObjType), fisob.ID);
+                }
+
+                foreach (SandboxUnlock unlock in fisob.SandboxUnlocks) {
+                    EnumExtender.AddDeclaration(typeof(UnlockType), unlock.ID);
+                }
             }
 
             EnumExtender.ExtendEnumsAgain();
 
             foreach (Fisob fisob in fisobs) {
                 fisobsByType[fisob.Type] = fisob;
+
+                if (fisob is Critob critob) {
+                    critobsByType[critob.Type] = critob;
+                }
             }
         }
 
