@@ -8,6 +8,8 @@ namespace CFisobs
     /// </summary>
     public static class FisobExtensions
     {
+        public static Color DefaultIconColor { get; } = Menu.Menu.MenuRGB(Menu.Menu.MenuColors.MediumGrey);
+
         /// <summary>
         /// Realizes an APO at a position with a specified velocity.
         /// </summary>

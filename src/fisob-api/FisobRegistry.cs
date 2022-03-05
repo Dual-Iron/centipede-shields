@@ -89,6 +89,7 @@ namespace CFisobs
         {
             On.Menu.SandboxEditorSelector.ctor += SandboxEditorSelector_ctor;
             On.RainWorld.LoadResources += RainWorld_LoadResources;
+            On.ItemSymbol.SymbolDataFromItem += ItemSymbol_SymbolDataFromItem;
             On.ItemSymbol.ColorForItem += ItemSymbol_ColorForItem;
             On.ItemSymbol.SpriteNameForItem += ItemSymbol_SpriteNameForItem;
             On.SandboxGameSession.SpawnEntity += SandboxGameSession_SpawnEntity;
@@ -109,6 +110,7 @@ namespace CFisobs
         {
             On.Menu.SandboxEditorSelector.ctor -= SandboxEditorSelector_ctor;
             On.RainWorld.LoadResources -= RainWorld_LoadResources;
+            On.ItemSymbol.SymbolDataFromItem -= ItemSymbol_SymbolDataFromItem;
             On.ItemSymbol.ColorForItem -= ItemSymbol_ColorForItem;
             On.ItemSymbol.SpriteNameForItem -= ItemSymbol_SpriteNameForItem;
             On.SandboxGameSession.SpawnEntity -= SandboxGameSession_SpawnEntity;
@@ -145,10 +147,18 @@ namespace CFisobs
             }
         }
 
+        private IconSymbol.IconSymbolData? ItemSymbol_SymbolDataFromItem(On.ItemSymbol.orig_SymbolDataFromItem orig, AbstractPhysicalObject item)
+        {
+            if (fisobsByType.TryGetValue(item.type, out var fisob)) {
+                return new IconSymbol.IconSymbolData(0, item.type, fisob.Icon.Data(item));
+            }
+            return orig(item);
+        }
+
         private Color ItemSymbol_ColorForItem(On.ItemSymbol.orig_ColorForItem orig, ObjType itemType, int intData)
         {
             if (fisobsByType.TryGetValue(itemType, out var fisob)) {
-                return fisob.IconColor;
+                return fisob.Icon.SpriteColor(intData);
             }
             return orig(itemType, intData);
         }
@@ -156,7 +166,7 @@ namespace CFisobs
         private string ItemSymbol_SpriteNameForItem(On.ItemSymbol.orig_SpriteNameForItem orig, ObjType itemType, int intData)
         {
             if (fisobsByType.TryGetValue(itemType, out var fisob)) {
-                return fisob.IconName;
+                return fisob.Icon.SpriteName(intData);
             }
             return orig(itemType, intData);
         }

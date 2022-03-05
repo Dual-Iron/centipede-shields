@@ -1,7 +1,6 @@
 ﻿using System;
 using System.IO;
 using System.Linq;
-using UnityEngine;
 
 namespace CFisobs
 {
@@ -30,22 +29,11 @@ namespace CFisobs
             }
 
             ID = id;
-
-            IconName = $"icon_{ID}";
-            IconColor = Menu.Menu.MenuRGB(Menu.Menu.MenuColors.MediumGrey);
         }
 
         private AbstractPhysicalObject.AbstractObjectType? type;
 
-        /// <summary>
-        /// The <see cref="FAtlasElement"/> name of this fisob's icon sprite.
-        /// </summary>
-        public string IconName { get; protected set; }
-
-        /// <summary>
-        /// The color of this fisob's icon sprite.
-        /// </summary>
-        public Color IconColor { get; protected set; }
+        public IFisobIcon Icon;
 
         /// <summary>
         /// This fisob's unique identifier.
@@ -93,8 +81,10 @@ namespace CFisobs
         /// <param name="rainWorld">The application instance.</param>
         public virtual void LoadResources(RainWorld rainWorld)
         {
-            if (!FisobExtensions.LoadAtlasFromEmbeddedResource(IconName)) {
-                IconName = "Futile_White";
+            if (Icon == null) {
+                string iconName = FisobExtensions.LoadAtlasFromEmbeddedResource($"icon_{ID}") ? $"icon_{ID}" : "Futile_White";
+
+                Icon = new SimpleFisobIcon(iconName, FisobExtensions.DefaultIconColor);
             }
         }
     }
