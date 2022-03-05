@@ -25,7 +25,14 @@ namespace CFisobs
         /// <exception cref="ArgumentException">Thrown when a fisob can't be added to the registry.</exception>
         public static void Register(params Fisob[] fisobs)
         {
-            new FisobRegistry(fisobs).ApplyHooks();
+            try {
+                new FisobRegistry(fisobs).ApplyHooks();
+            } catch (Exception e) {
+                Debug.LogException(e);
+                Debug.LogError(e);
+                Console.WriteLine(e);
+                throw;
+            }
         }
 
         private readonly Dictionary<ObjType, Fisob> fisobsByType = new Dictionary<ObjType, Fisob>();
@@ -298,7 +305,7 @@ namespace CFisobs
                     int.TryParse(coordParts[3], out int node)) {
                     coord = new WorldCoordinate(room, x, y, node);
                 } else {
-                    Debug.Log($"{nameof(CFisobs)} : Corrupt world coordinate on object \"{id}\", type \"{o.ID}\"");
+                    Debug.LogError($"{nameof(CFisobs)} : Corrupt world coordinate on object \"{id}\", type \"{o.ID}\"");
                     return null;
                 }
 
