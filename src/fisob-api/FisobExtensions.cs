@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using UnityEngine;
 
 namespace CFisobs
@@ -92,6 +93,11 @@ namespace CFisobs
 
                 return true;
             }
+        }
+
+        public static bool IsValidID(string id)
+        {
+            return !string.IsNullOrEmpty(id) && id.All(c => c >= 'a' && c <= 'z' || c == '_');
         }
     }
 }

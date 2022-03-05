@@ -1,11 +1,9 @@
-﻿using static Menu.Menu;
-using static Menu.SandboxEditorSelector;
+﻿using static Menu.SandboxEditorSelector;
 using ObjType = AbstractPhysicalObject.AbstractObjectType;
 using PastebinMachine.EnumExtender;
 using UnityEngine;
 using System.Collections.Generic;
 using System;
-using System.Linq;
 using ArenaBehaviors;
 
 namespace CFisobs
@@ -43,36 +41,40 @@ namespace CFisobs
         /// <exception cref="ArgumentException">Thrown when a fisob can't be added to this registry.</exception>
         public FisobRegistry(IEnumerable<Fisob> fisobs)
         {
-            var t = typeof(ObjType);
-            var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            var names = Enum.GetNames(t);
+            Verify(fisobs);
+            RegisterTypes(fisobs);
+        }
 
-            // Verify fisobs first
+        private static void Verify(IEnumerable<Fisob> fisobs)
+        {
+            var ids = new HashSet<string>(Enum.GetNames(typeof(ObjType)), StringComparer.OrdinalIgnoreCase);
+
             foreach (Fisob fisob in fisobs) {
+                if (!FisobExtensions.IsValidID(fisob.ID)) {
+                    throw new InvalidOperationException($"The fisob ID \"{fisob.ID}\" is invalid. Valid IDs must consist of a-z and _.");
+                }
+
                 if (!ids.Add(fisob.ID)) {
                     throw new InvalidOperationException($"The registry contains multiple fisobs with the ID \"{fisob.ID}\".");
                 }
-
-                if (names.Contains(fisob.ID, StringComparer.OrdinalIgnoreCase)) {
-                    throw new ArgumentException($"The ID \"{fisob.ID}\" is synonymous with a name in AbstractPhysicalObject.AbstractObjectType.");
-                }
             }
+        }
 
-            // Add them to enums
+        private void RegisterTypes(IEnumerable<Fisob> fisobs)
+        {
             foreach (Fisob fisob in fisobs) {
-                EnumExtender.AddDeclaration(t, fisob.ID);
+                EnumExtender.AddDeclaration(typeof(ObjType), fisob.ID);
             }
 
             EnumExtender.ExtendEnumsAgain();
 
-            // Assign their types
             foreach (Fisob fisob in fisobs) {
                 fisobsByType[fisob.Type] = fisob;
             }
         }
 
         /// <summary>
-        /// Gets a fisob from an object type. This is sugar for <see cref="this[string]"/>.
+        /// Gets a fisob from an object type.
         /// </summary>
         /// <returns>The fisob whose type is <paramref name="type"/>.</returns>
         /// <exception cref="KeyNotFoundException"/>

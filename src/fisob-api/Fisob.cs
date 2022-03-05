@@ -1,6 +1,4 @@
 ﻿using System;
-using System.IO;
-using System.Linq;
 
 namespace CFisobs
 {
@@ -9,25 +7,12 @@ namespace CFisobs
     /// </summary>
     public abstract class Fisob
     {
-        static bool IsValidID(char c)
-        {
-            return c >= 'a' && c <= 'z' || c == '_';
-        }
-
         /// <summary>
         /// Initializes a new instance of the <see cref="Fisob"/> class.
         /// </summary>
         /// <param name="id">This fisob's unique identifier. Only lowercase `a-z` and `_` are allowed.</param>
         protected Fisob(string id)
         {
-            if (string.IsNullOrEmpty(id)) {
-                throw new ArgumentException("ID cannot be null or empty.");
-            }
-
-            if (!id.All(IsValidID)) {
-                throw new ArgumentException("ID must only consist of a-z and _.");
-            }
-
             ID = id;
         }
 
