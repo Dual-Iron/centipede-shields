@@ -4,9 +4,8 @@ namespace CFisobs
 {
     public class SandboxUnlock
     {
-        public SandboxUnlock(Fisob owner, string id, int data)
+        public SandboxUnlock(string id, int data)
         {
-            Owner = owner;
             ID = id;
             Data = data;
         }
@@ -27,10 +26,5 @@ namespace CFisobs
         }
 
         public virtual bool IsUnlocked(MultiplayerUnlocks unlocks) => true;
-
-        public virtual AbstractPhysicalObject Parse(World world, EntitySaveData saveData)
-        {
-            return Owner.Parse(world, saveData);
-        }
     }
 }

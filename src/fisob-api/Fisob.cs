@@ -45,9 +45,9 @@ namespace CFisobs
         /// Gets an APO from save data.
         /// </summary>
         /// <param name="world">The entity's world.</param>
-        /// <param name="saveData">The entity's save data. If spawned via sandbox mode, <see cref="EntitySaveData.CustomData"/> will be empty.</param>
+        /// <param name="saveData">The entity's save data.</param>
         /// <returns>A newly created abstract physical object, or <see langword="null"/>.</returns>
-        public abstract AbstractPhysicalObject Parse(World world, EntitySaveData saveData);
+        public abstract AbstractPhysicalObject Parse(World world, EntitySaveData saveData, SandboxUnlock unlock);
 
         /// <summary>
         /// Gets an object representing the properties of a PO.

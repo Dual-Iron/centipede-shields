@@ -66,11 +66,10 @@ namespace CFisobs
 
         private void InsertFisobs(bool creatures, SandboxEditorSelector self, ref int counter)
         {
-            foreach (Fisob fisob in fisobsByType.Values) {
-                //if (creatures != fisob is Critob) {
-                //    continue;
-                //}
-                // TODO critobs
+            foreach (Fisob fisob in allFisobs) {
+                if (creatures != fisob is Critob) {
+                    continue;
+                }
 
                 foreach (var unlock in fisob.SandboxUnlocks) {
                     // Reserve slots for:
@@ -122,29 +121,57 @@ namespace CFisobs
 
         private void SandboxGameSession_SpawnEntity(On.SandboxGameSession.orig_SpawnEntity orig, SandboxGameSession self, SandboxEditor.PlacedIconData p)
         {
-            if (fisobsByType.TryGetValue(p.data.itemType, out var fisob)) {
-                WorldCoordinate coord = new WorldCoordinate(0, Mathf.RoundToInt(p.pos.x / 20f), Mathf.RoundToInt(p.pos.y / 20f), -1);
-                EntitySaveData data = new EntitySaveData(p.data.itemType, p.ID, coord, "");
-                SandboxUnlock unlock = fisob.SandboxUnlocks.FirstOrDefault(u => u.Data == p.data.intData);
+            EntityID id = self.GameTypeSetup.saveCreatures ? p.ID : self.game.GetNewID();
+            WorldCoordinate coord = new WorldCoordinate(0, Mathf.RoundToInt(p.pos.x / 20f), Mathf.RoundToInt(p.pos.y / 20f), -1);
 
-                if (unlock == null) {
-                    Debug.LogError($"The fisob \"{fisob.ID}\" had no sandbox unlocks where Data={p.data.intData}.");
-                    return;
-                }
+            if (TryGet(p.data.critType, out var critob)) {
+                string stateData = "";
+                if (self.GameTypeSetup.saveCreatures) {
+                    var creature = self.arenaSitting.creatures.FirstOrDefault(c => c.creatureTemplate.type == p.data.critType && c.ID == p.ID);
+                    if (creature != null) {
+                        self.arenaSitting.creatures.Remove(creature);
 
-                try {
-                    var entity = unlock.Parse(self.game.world, data);
-                    if (entity != null) {
-                        self.game.world.GetAbstractRoom(0).AddEntity(entity);
-                    } else {
-                        Debug.LogError($"The sandbox unlock \"{unlock.ID}\" returned null when being parsed in sandbox mode.");
+                        for (int i = 0; i < 2; i++) {
+                            creature.state.CycleTick();
+                        }
+
+                        stateData = creature.state.ToString();
                     }
-                } catch (Exception e) {
-                    Debug.LogException(e);
-                    Debug.LogError($"The sandbox unlock \"{unlock.ID}\" threw an exception when being parsed in sandbox mode.");
                 }
+
+                EntitySaveData data = new EntitySaveData(AbstractPhysicalObject.AbstractObjectType.Creature, p.data.critType, id, coord, stateData);
+
+                DoSpawn(self, p, data, critob);
+
+            } else if (TryGet(p.data.itemType, out var fisob)) {
+                EntitySaveData data = new EntitySaveData(p.data.itemType, 0, id, coord, "");
+
+                DoSpawn(self, p, data, fisob);
+
             } else {
                 orig(self, p);
+            }
+        }
+
+        private static void DoSpawn(SandboxGameSession self, SandboxEditor.PlacedIconData p, EntitySaveData data, Fisob fisob)
+        {
+            SandboxUnlock unlock = fisob.SandboxUnlocks.FirstOrDefault(u => u.Data == p.data.intData);
+
+            if (unlock == null) {
+                Debug.LogError($"The fisob \"{fisob.ID}\" had no sandbox unlocks where Data={p.data.intData}.");
+                return;
+            }
+
+            try {
+                var entity = fisob.Parse(self.game.world, data, unlock);
+                if (entity != null) {
+                    self.game.world.GetAbstractRoom(0).AddEntity(entity);
+                } else {
+                    Debug.LogError($"The sandbox unlock \"{unlock.ID}\" returned null when being parsed in sandbox mode.");
+                }
+            } catch (Exception e) {
+                Debug.LogException(e);
+                Debug.LogError($"The sandbox unlock \"{unlock.ID}\" threw an exception when being parsed in sandbox mode.");
             }
         }
     }

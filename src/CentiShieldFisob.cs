@@ -13,11 +13,11 @@ namespace CentiShields
         {
             Icon = new CentiShieldIcon();
 
-            SandboxUnlocks.Add(new CentiShieldUnlock(this, 0));
-            SandboxUnlocks.Add(new CentiShieldUnlock(this, 70));
+            SandboxUnlocks.Add(new SandboxUnlock("centipede_shield_red", 0));
+            SandboxUnlocks.Add(new SandboxUnlock("centipede_shield_orange", 70));
         }
 
-        public override AbstractPhysicalObject Parse(World world, EntitySaveData saveData)
+        public override AbstractPhysicalObject Parse(World world, EntitySaveData saveData, SandboxUnlock unlock)
         {
             string[] p = saveData.CustomData.Split(';');
 
@@ -25,39 +25,29 @@ namespace CentiShields
                 p = new string[5];
             }
 
-            return new CentiShieldAbstract(world, saveData.Pos, saveData.ID) {
+            var result = new CentiShieldAbstract(world, saveData.Pos, saveData.ID) {
                 hue = float.TryParse(p[0], out var h) ? h : 0,
                 saturation = float.TryParse(p[1], out var s) ? s : 1,
                 scaleX = float.TryParse(p[2], out var x) ? x : 1,
                 scaleY = float.TryParse(p[3], out var y) ? y : 1,
                 damage = float.TryParse(p[4], out var r) ? r : 0
             };
+
+            if (unlock != null) {
+                result.hue = unlock.Data / 1000f;
+
+                if (unlock.Data == 0) {
+                    result.scaleX += 0.2f;
+                    result.scaleY += 0.2f;
+                }
+            }
+
+            return result;
         }
 
         public override FisobProperties GetProperties(PhysicalObject forObject)
         {
             return properties;
-        }
-    }
-
-    sealed class CentiShieldUnlock : SandboxUnlock
-    {
-        public CentiShieldUnlock(Fisob owner, int data) : base(owner, $"centipede_shield_{data}", data)
-        {
-        }
-
-        public override AbstractPhysicalObject Parse(World world, EntitySaveData saveData)
-        {
-            var ret = base.Parse(world, saveData);
-            if (ret is CentiShieldAbstract centiShield) {
-                centiShield.hue = Data / 1000f;
-
-                if (Data == 0) {
-                    centiShield.scaleX += .2f;
-                    centiShield.scaleY += .2f;
-                }
-            }
-            return ret;
         }
     }
 

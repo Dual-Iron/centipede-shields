@@ -33,6 +33,7 @@ namespace CFisobs
             }
         }
 
+        private readonly List<Fisob> allFisobs = new List<Fisob>();
         private readonly Dictionary<ObjType, Fisob> fisobsByType = new Dictionary<ObjType, Fisob>();
         private readonly Dictionary<CritType, Critob> critobsByType = new Dictionary<CritType, Critob>();
 
@@ -93,20 +94,14 @@ namespace CFisobs
             EnumExtender.ExtendEnumsAgain();
 
             foreach (Fisob fisob in fisobs) {
-                fisobsByType[fisob.Type] = fisob;
-
+                allFisobs.Add(fisob);
                 if (fisob is Critob critob) {
                     critobsByType[critob.Type] = critob;
+                } else {
+                    fisobsByType[fisob.Type] = fisob;
                 }
             }
         }
-
-        /// <summary>
-        /// Gets a fisob from an object type.
-        /// </summary>
-        /// <returns>The fisob whose type is <paramref name="type"/>.</returns>
-        /// <exception cref="KeyNotFoundException"/>
-        public Fisob this[ObjType type] => fisobsByType[type];
 
         /// <summary>
         /// Gets a fisob from an object type.
@@ -117,6 +112,17 @@ namespace CFisobs
         public bool TryGet(ObjType type, out Fisob fisob)
         {
             return fisobsByType.TryGetValue(type, out fisob);
+        }
+
+        /// <summary>
+        /// Gets a critob from a creature type.
+        /// </summary>
+        /// <param name="type">The type of the critob.</param>
+        /// <param name="critob">If it exists, the critob; otherwise, <see langword="null"/>.</param>
+        /// <returns>If the critob exists, <see langword="true"/>; otherwise, <see langword="false"/>.</returns>
+        public bool TryGet(CritType type, out Critob critob)
+        {
+            return critobsByType.TryGetValue(type, out critob);
         }
 
         bool applied;
@@ -169,16 +175,22 @@ namespace CFisobs
 
         private FisobProperties P(PhysicalObject po)
         {
-            if (po is null) return null;
-            if (!fisobsByType.TryGetValue(po.abstractPhysicalObject.type, out var f)) return null;
-            return f.GetProperties(po);
+            if (po is object) {
+                if (TryGet(po.abstractPhysicalObject.type, out Fisob f)) {
+                    return f.GetProperties(po);
+                }
+                if (po.abstractPhysicalObject is AbstractCreature crit && TryGet(crit.creatureTemplate.type, out Critob c)) {
+                    return c.GetProperties(po);
+                }
+            }
+            return null;
         }
 
         private void RainWorld_LoadResources(On.RainWorld.orig_LoadResources orig, RainWorld self)
         {
             orig(self);
 
-            foreach (var fisob in fisobsByType.Values) {
+            foreach (var fisob in allFisobs) {
                 fisob.LoadResources(self);
             }
         }
@@ -238,7 +250,7 @@ namespace CFisobs
             string[] array = objString.Split(new[] { "<oA>" }, StringSplitOptions.None);
             ObjType type = RWCustom.Custom.ParseEnum<ObjType>(array[1]);
 
-            if (fisobsByType.TryGetValue(type, out Fisob o) && array.Length > 2) {
+            if (TryGet(type, out Fisob o) && array.Length > 2) {
                 EntityID id = EntityID.FromString(array[0]);
 
                 string[] coordParts = array[2].Split('.');
@@ -263,7 +275,7 @@ namespace CFisobs
                 }
 
                 try {
-                    return o.Parse(world, new EntitySaveData(o.Type, id, coord, customData));
+                    return o.Parse(world, new EntitySaveData(o.Type, 0, id, coord, customData), null);
                 } catch (Exception e) {
                     Debug.LogError($"{nameof(CFisobs)} : {e}");
                     return null;
