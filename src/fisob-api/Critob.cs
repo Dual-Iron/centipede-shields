@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-
-namespace CFisobs
+﻿namespace CFisobs
 {
     public abstract class Critob : Fisob
     {
@@ -20,6 +15,23 @@ namespace CFisobs
                 }
                 return type.Value;
             }
+        }
+
+        public virtual void KillsMatter(CreatureTemplate.Type type, ref bool ret) { }
+
+        public abstract Creature GetRealizedCreature(AbstractCreature acrit);
+
+        public abstract ArtificialIntelligence GetRealizedAI(AbstractCreature acrit);
+
+        public virtual AbstractCreatureAI GetAbstractAI(AbstractCreature acrit, World world) => null;
+
+        public virtual CreatureState GetState(AbstractCreature acrit) => null;
+
+        public virtual void Init(AbstractCreature acrit, World world, WorldCoordinate pos, EntityID id) { }
+
+        public virtual bool GraspParalyzesPlayer(Creature.Grasp grasp)
+        {
+            return false;
         }
     }
 }

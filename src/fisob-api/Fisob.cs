@@ -34,6 +34,9 @@ namespace CFisobs
         /// <exception cref="ArgumentException">Thrown when the fisob has not been added to a registry yet.</exception>
         public AbstractPhysicalObject.AbstractObjectType Type {
             get {
+                if (this is Critob) {
+                    return AbstractPhysicalObject.AbstractObjectType.Creature;
+                }
                 if (type == null) {
                     type = RWCustom.Custom.ParseEnum<AbstractPhysicalObject.AbstractObjectType>(ID);
                 }
