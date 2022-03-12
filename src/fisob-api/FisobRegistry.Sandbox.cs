@@ -18,13 +18,6 @@ namespace CFisobs
             On.SandboxGameSession.SpawnEntity += SandboxGameSession_SpawnEntity;
         }
 
-        void UndoSandbox()
-        {
-            IL.Menu.SandboxEditorSelector.ctor -= AddCustomFisobs;
-            On.Menu.SandboxEditorSelector.ctor -= SandboxEditorSelector_ctor;
-            On.SandboxGameSession.SpawnEntity -= SandboxGameSession_SpawnEntity;
-        }
-
         #region Hooking sandbox select menu
         delegate void InsertSandboxEditor(SandboxEditorSelector self, ref int counter);
 

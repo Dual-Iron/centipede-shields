@@ -16,17 +16,6 @@ namespace CFisobs
             On.ItemSymbol.SpriteNameForItem += ItemSymbol_SpriteNameForItem;
         }
 
-        void UndoIcons()
-        {
-            On.CreatureSymbol.SymbolDataFromCreature -= CreatureSymbol_SymbolDataFromCreature;
-            On.CreatureSymbol.ColorOfCreature -= CreatureSymbol_ColorOfCreature;
-            On.CreatureSymbol.SpriteNameOfCreature -= CreatureSymbol_SpriteNameOfCreature;
-
-            On.ItemSymbol.SymbolDataFromItem -= ItemSymbol_SymbolDataFromItem;
-            On.ItemSymbol.ColorForItem -= ItemSymbol_ColorForItem;
-            On.ItemSymbol.SpriteNameForItem -= ItemSymbol_SpriteNameForItem;
-        }
-
         private IconSymbol.IconSymbolData CreatureSymbol_SymbolDataFromCreature(On.CreatureSymbol.orig_SymbolDataFromCreature orig, AbstractCreature creature)
         {
             if (TryGet(creature.creatureTemplate.type, out var critob)) {

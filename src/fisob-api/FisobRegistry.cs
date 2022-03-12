@@ -125,19 +125,11 @@ namespace CFisobs
             return critobsByType.TryGetValue(type, out critob);
         }
 
-        bool applied;
-
         /// <summary>
         /// Applies hooks that enable fisob behavior.
         /// </summary>
         public void ApplyHooks()
         {
-            if (applied) {
-                return;
-            }
-
-            applied = true;
-
             ApplySandbox();
             ApplyIcons();
 
@@ -148,29 +140,6 @@ namespace CFisobs
             On.ScavengerAI.WeaponScore += ScavengerAI_WeaponScore;
             On.ScavengerAI.CollectScore_PhysicalObject_bool += ScavengerAI_CollectScore_PhysicalObject_bool;
             On.SaveState.AbstractPhysicalObjectFromString += SaveState_AbstractPhysicalObjectFromString;
-        }
-
-        /// <summary>
-        /// Undoes the hooks applied through <see cref="ApplyHooks"/>.
-        /// </summary>
-        public void UndoHooks()
-        {
-            if (!applied) {
-                return;
-            }
-
-            applied = false;
-
-            ApplySandbox();
-            ApplyIcons();
-
-            On.RainWorld.LoadResources -= RainWorld_LoadResources;
-            On.Player.IsObjectThrowable -= Player_IsObjectThrowable;
-            On.Player.Grabability -= Player_Grabability;
-            On.ScavengerAI.RealWeapon -= ScavengerAI_RealWeapon;
-            On.ScavengerAI.WeaponScore -= ScavengerAI_WeaponScore;
-            On.ScavengerAI.CollectScore_PhysicalObject_bool -= ScavengerAI_CollectScore_PhysicalObject_bool;
-            On.SaveState.AbstractPhysicalObjectFromString -= SaveState_AbstractPhysicalObjectFromString;
         }
 
         private FisobProperties P(PhysicalObject po)
