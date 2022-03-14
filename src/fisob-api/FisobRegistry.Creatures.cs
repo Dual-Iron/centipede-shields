@@ -4,11 +4,121 @@ using System.Collections.Generic;
 
 namespace CFisobs
 {
+    public struct PreBakedPathing
+    {
+        private byte type; // 0 for none, 1 for original, 2 for ancestor
+        private CreatureTemplate.Type ancestor;
+
+        public static PreBakedPathing None => new PreBakedPathing { type = 0 };
+        public static PreBakedPathing Original => new PreBakedPathing { type = 1 };
+        public static PreBakedPathing From(CreatureTemplate.Type ancestor) => new PreBakedPathing { type = 2, ancestor = ancestor };
+
+        public bool IsNone => type == 0;
+        public bool IsOriginal => type == 1;
+        public bool IsFromAncestor(out CreatureTemplate.Type ancestor)
+        {
+            ancestor = this.ancestor;
+            return type == 2;
+        }
+    }
+
+    public struct TileResistance
+    {
+        public PathCost OffScreen; // when abstracted
+        public PathCost Floor;
+        public PathCost Corridor;
+        public PathCost Climb;
+        public PathCost Wall;
+        public PathCost Ceiling;
+        public PathCost Air;
+        public PathCost Solid;
+    }
+
+    public struct MovementResistance
+    {
+        public PathCost Standard;
+        public PathCost ReachOverGap;
+        public PathCost ReachUp;
+        public PathCost DoubleReachUp;
+        public PathCost ReachDown;
+        public PathCost SemiDiagonalReach;
+        public PathCost DropToFloor;
+        public PathCost DropToClimb;
+        public PathCost DropToWater;
+        public PathCost LizardTurn;
+        public PathCost OpenDiagonal;
+        public PathCost Slope;
+        public PathCost CeilingSlope;
+        public PathCost ShortCut;
+        public PathCost NPCTransportation;
+        public PathCost BigCreatureShortCutSqueeze;
+        public PathCost OutsideRoom;
+        public PathCost SideHighway;
+        public PathCost SkyHighway;
+        public PathCost SeaHighway;
+        public PathCost RegionTransportation;
+        public PathCost BetweenRooms;
+        public PathCost OffScreenMovement;
+        public PathCost OffScreenUnallowed;
+    }
+
+    public struct AttackResistance
+    {
+        public float All;
+        public float Blunt;
+        public float Stab;
+        public float Bite;
+        public float Water;
+        public float Explosion;
+        public float Electric;
+    }
+
+    public enum KillSignificance : byte
+    {
+        None,
+        CountsAgainstSaint,
+        CountsTowardsOutlaw
+    }
+
     public sealed class CreatureTemplateData
     {
+        // requireAImap should be true iff doPreBakedPathing or preBakedPathingAncestor.doPreBakedPathing
+
         public readonly string Name;
-        public readonly CreatureTemplate.Type Ancestor;
-        public readonly CreatureTemplate.Type PathingAncestor;
+        public CreatureTemplate.Type? Ancestor;
+        public PreBakedPathing Pathing;
+        public TileResistance TileResistances;
+        public MovementResistance MovementResistances;
+        public AttackResistance DamageResistances;
+        public AttackResistance StunResistances;
+        public float InstantDeathDamage;
+        public bool HasAI;
+        public bool IsQuantified;
+        public float AbstractSpeed; // how fast the creature moves between abstract rooms
+        public int AbstractLaziness; // how long it takes the creature to start migrating
+        public BreedParameters BreedParameters;
+        public bool CanFly;
+        public int Grasps;
+        public bool PutsFoodInDen;
+        public bool IsSmall; // if rocks instakill, if apex predators ignore it, etc if it's mostly ignored by macro creatures
+        public float DangerToPlayer; // 0..1, DLLs are .85, spiders are .1, pole plants are .5
+        public float RoamInRoomChance;
+        public float RoamBetweenRoomsChance;
+
+        public float VisionRadius;
+        public float VisionThruWater = 0.4f; // proficiency at seeing a point that passes through deep water
+        public float VisionThruWaterSurface = 0.8f; // proficiency at seeing a point that passes through the surface of water
+        public float VisionMovementBonus = 0.2f; // bonus to vision on moving targets
+
+        public CreatureCommunities.CommunityID Community = CreatureCommunities.CommunityID.All;
+        public float CommunityInfluence = 0.5f;
+
+        public KillSignificance KillSignificance = KillSignificance.CountsTowardsOutlaw;
+        public int MeatPoints;
+
+        public float LungCapacity = 520f; // ticks it takes to fall unconscious from drowning
+        public bool QuickDeath = true; // true if the creature should die as defined by Creature.Violence. if false, custom death logic must be used
+
         // TODO fill out relevant fields for CreatureTemplate
 
         public CreatureTemplateData(string name)
@@ -33,6 +143,8 @@ namespace CFisobs
         private static void RegisterCustomCreatures()
         {
             List<CreatureTemplate> newTemplates = new List<CreatureTemplate>();
+
+
         }
 
         // TODO use the following mosquito example to register custom creatures:

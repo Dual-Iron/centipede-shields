@@ -15,10 +15,9 @@ namespace CentiShields
 
         public override void Realize()
         {
+            base.Realize();
             if (realizedObject == null)
                 realizedObject = new CentiShield(this, Room.realizedRoom.MiddleOfTile(pos.Tile), Vector2.zero);
-
-            base.Realize();
         }
 
         public float hue;
