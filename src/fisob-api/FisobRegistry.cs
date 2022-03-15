@@ -131,8 +131,16 @@ namespace CFisobs
         /// </summary>
         public void ApplyHooks()
         {
+            if (allFisobs.Count == 0) {
+                return;
+            }
+
+            if (critobsByType.Count > 0) {
+                ApplyCreatures();
+            }
+
+            ApplyItems();
             ApplySandbox();
-            ApplyIcons();
 
             On.RainWorld.LoadResources += RainWorld_LoadResources;
             On.Player.IsObjectThrowable += Player_IsObjectThrowable;
@@ -140,9 +148,9 @@ namespace CFisobs
             On.ScavengerAI.RealWeapon += ScavengerAI_RealWeapon;
             On.ScavengerAI.WeaponScore += ScavengerAI_WeaponScore;
             On.ScavengerAI.CollectScore_PhysicalObject_bool += ScavengerAI_CollectScore_PhysicalObject_bool;
-            On.SaveState.AbstractPhysicalObjectFromString += SaveState_AbstractPhysicalObjectFromString;
         }
 
+        #region Hooks common between fisobs and critobs
         private FisobProperties P(PhysicalObject po)
         {
             if (po is object) {
@@ -214,45 +222,6 @@ namespace CFisobs
 
             return ret;
         }
-
-        private AbstractPhysicalObject SaveState_AbstractPhysicalObjectFromString(On.SaveState.orig_AbstractPhysicalObjectFromString orig, World world, string objString)
-        {
-            string[] array = objString.Split(new[] { "<oA>" }, StringSplitOptions.None);
-            ObjType type = RWCustom.Custom.ParseEnum<ObjType>(array[1]);
-
-            if (TryGet(type, out Fisob o) && array.Length > 2) {
-                EntityID id = EntityID.FromString(array[0]);
-
-                string[] coordParts = array[2].Split('.');
-
-                WorldCoordinate coord;
-
-                if (int.TryParse(coordParts[0], out int room) &&
-                    int.TryParse(coordParts[1], out int x) &&
-                    int.TryParse(coordParts[2], out int y) &&
-                    int.TryParse(coordParts[3], out int node)) {
-                    coord = new WorldCoordinate(room, x, y, node);
-                } else {
-                    Debug.LogError($"{nameof(CFisobs)} : Corrupt world coordinate on object \"{id}\", type \"{o.ID}\"");
-                    return null;
-                }
-
-                string customData = array.Length == 4 ? array[3] : "";
-
-                if (array.Length > 4) {
-                    Debug.LogError($"{nameof(CFisobs)} : Save data had more than 4 <oA> sections in \"{o.ID}\". Override `APO.ToString()` to return `this.SaveAsString(...)`.");
-                    return null;
-                }
-
-                try {
-                    return o.Parse(world, new EntitySaveData(o.Type, 0, id, coord, customData), null);
-                } catch (Exception e) {
-                    Debug.LogError($"{nameof(CFisobs)} : {e}");
-                    return null;
-                }
-            }
-
-            return orig(world, objString);
-        }
+        #endregion
     }
 }
