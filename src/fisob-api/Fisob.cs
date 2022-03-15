@@ -1,4 +1,5 @@
-﻿using System;
+﻿using CFisobs.Creatures;
+using System;
 using System.Collections.Generic;
 
 namespace CFisobs

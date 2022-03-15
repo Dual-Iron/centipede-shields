@@ -6,6 +6,7 @@ using MonoMod.Cil;
 using Mono.Cecil.Cil;
 using Menu;
 using System.Linq;
+using CFisobs.Creatures;
 
 namespace CFisobs
 {

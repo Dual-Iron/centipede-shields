@@ -28,5 +28,10 @@ namespace CFisobs
 
         public static implicit operator T(LazyEnum<T> lazyEnum) => lazyEnum.Value;
         public static implicit operator LazyEnum<T>(T value) => new LazyEnum<T>(value.ToString());
+
+        public override string ToString()
+        {
+            return Name;
+        }
     }
 }

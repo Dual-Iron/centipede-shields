@@ -1,132 +1,11 @@
 ﻿using UnityEngine;
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using CFisobs.Creatures;
 
 namespace CFisobs
 {
-    public struct PreBakedPathing
-    {
-        private byte type; // 0 for none, 1 for original, 2 for ancestor
-        private CreatureTemplate.Type ancestor;
-
-        public static PreBakedPathing None => new PreBakedPathing { type = 0 };
-        public static PreBakedPathing Original => new PreBakedPathing { type = 1 };
-        public static PreBakedPathing From(CreatureTemplate.Type ancestor) => new PreBakedPathing { type = 2, ancestor = ancestor };
-
-        public bool IsNone => type == 0;
-        public bool IsOriginal => type == 1;
-        public bool IsFromAncestor(out CreatureTemplate.Type ancestor)
-        {
-            ancestor = this.ancestor;
-            return type == 2;
-        }
-    }
-
-    public struct TileResistance
-    {
-        public PathCost OffScreen; // when abstracted
-        public PathCost Floor;
-        public PathCost Corridor;
-        public PathCost Climb;
-        public PathCost Wall;
-        public PathCost Ceiling;
-        public PathCost Air;
-        public PathCost Solid;
-    }
-
-    public struct MovementResistance
-    {
-        public PathCost Standard;
-        public PathCost ReachOverGap;
-        public PathCost ReachUp;
-        public PathCost DoubleReachUp;
-        public PathCost ReachDown;
-        public PathCost SemiDiagonalReach;
-        public PathCost DropToFloor;
-        public PathCost DropToClimb;
-        public PathCost DropToWater;
-        public PathCost LizardTurn;
-        public PathCost OpenDiagonal;
-        public PathCost Slope;
-        public PathCost CeilingSlope;
-        public PathCost ShortCut;
-        public PathCost NPCTransportation;
-        public PathCost BigCreatureShortCutSqueeze;
-        public PathCost OutsideRoom;
-        public PathCost SideHighway;
-        public PathCost SkyHighway;
-        public PathCost SeaHighway;
-        public PathCost RegionTransportation;
-        public PathCost BetweenRooms;
-        public PathCost OffScreenMovement;
-        public PathCost OffScreenUnallowed;
-    }
-
-    public struct AttackResistance
-    {
-        public float All;
-        public float Blunt;
-        public float Stab;
-        public float Bite;
-        public float Water;
-        public float Explosion;
-        public float Electric;
-    }
-
-    public enum KillSignificance : byte
-    {
-        None,
-        CountsAgainstSaint,
-        CountsTowardsOutlaw
-    }
-
-    public sealed class CreatureTemplateData
-    {
-        // requireAImap should be true iff doPreBakedPathing or preBakedPathingAncestor.doPreBakedPathing
-
-        public readonly string Name;
-        public CreatureTemplate.Type? Ancestor;
-        public PreBakedPathing Pathing;
-        public TileResistance TileResistances;
-        public MovementResistance MovementResistances;
-        public AttackResistance DamageResistances;
-        public AttackResistance StunResistances;
-        public float InstantDeathDamage;
-        public bool HasAI;
-        public bool IsQuantified;
-        public float AbstractSpeed; // how fast the creature moves between abstract rooms
-        public int AbstractLaziness; // how long it takes the creature to start migrating
-        public BreedParameters BreedParameters;
-        public bool CanFly;
-        public int Grasps;
-        public bool PutsFoodInDen;
-        public bool IsSmall; // if rocks instakill, if apex predators ignore it, etc if it's mostly ignored by macro creatures
-        public float DangerToPlayer; // 0..1, DLLs are .85, spiders are .1, pole plants are .5
-        public float RoamInRoomChance;
-        public float RoamBetweenRoomsChance;
-
-        public float VisionRadius;
-        public float VisionThruWater = 0.4f; // proficiency at seeing a point that passes through deep water
-        public float VisionThruWaterSurface = 0.8f; // proficiency at seeing a point that passes through the surface of water
-        public float VisionMovementBonus = 0.2f; // bonus to vision on moving targets
-
-        public CreatureCommunities.CommunityID Community = CreatureCommunities.CommunityID.All;
-        public float CommunityInfluence = 0.5f;
-
-        public KillSignificance KillSignificance = KillSignificance.CountsTowardsOutlaw;
-        public int MeatPoints;
-
-        public float LungCapacity = 520f; // ticks it takes to fall unconscious from drowning
-        public bool QuickDeath = true; // true if the creature should die as defined by Creature.Violence. if false, custom death logic must be used
-
-        // TODO fill out relevant fields for CreatureTemplate
-
-        public CreatureTemplateData(string name)
-        {
-            Name = name;
-        }
-    }
-
     public sealed partial class FisobRegistry
     {
         void ApplyCreatures()
@@ -140,92 +19,66 @@ namespace CFisobs
             On.CreatureSymbol.DoesCreatureEarnATrophy += KillsMatter;
         }
 
-        private static void RegisterCustomCreatures()
+        private void RegisterCustomCreatures()
         {
-            List<CreatureTemplate> newTemplates = new List<CreatureTemplate>();
+            var types = (CreatureTemplate.Type[])Enum.GetValues(typeof(CreatureTemplate.Type));
+            var oldTemplatesCount = StaticWorld.creatureTemplates.Length;
+            var newTemplates = new List<CreatureTemplate>(types.Length - oldTemplatesCount);
 
+            // Get new critob templates
+            foreach (Critob critob in critobsByType.Values) {
+                var templates = critob.GetTemplates()?.ToList() ?? throw new InvalidOperationException($"Critob \"{critob.ID}\" returned null in GetTemplates().");
 
+                if (!templates.Any(t => t.type == critob.Type)) {
+                    throw new InvalidOperationException($"Critob \"{critob.ID}\" does not have a template for its type, \"CreatureTemplate.Type::{critob.Type}\".");
+                }
+                if (templates.FirstOrDefault(t => t.TopAncestor().type != critob.Type) is CreatureTemplate offender) {
+                    throw new InvalidOperationException($"The template with type \"{offender.type}\" from critob \"{critob.ID}\" must have an ancestor of type \"CreatureTemplate.Type::{critob.Type}\".");
+                }
+
+                newTemplates.AddRange(templates);
+
+                foreach (var template in newTemplates) {
+                    critob.AddChildType(template.type);
+                }
+            }
+
+            // Add new critob templates to StaticWorld.creatureTemplates
+            Array.Resize(ref StaticWorld.creatureTemplates, oldTemplatesCount + newTemplates.Count);
+
+            foreach (CreatureTemplate extraTemplate in newTemplates) {
+                // Make sure we're not overwriting vanilla or causing index-out-of-bound errors
+                if ((int)extraTemplate.type < 46) {
+                    throw new InvalidOperationException($"The CreatureTemplate.Type value {extraTemplate.type} ({(int)extraTemplate.type}) must be greater than 45 to not overwrite vanilla.");
+                }
+                if ((int)extraTemplate.type >= StaticWorld.creatureTemplates.Length) {
+                    throw new InvalidOperationException(
+                        $"The CreatureTemplate.Type value {extraTemplate.type} ({(int)extraTemplate.type}) must be less than StaticWorld.creatureTemplates.Length ({StaticWorld.creatureTemplates.Length}).");
+                }
+                StaticWorld.creatureTemplates[(int)extraTemplate.type] = extraTemplate;
+            }
+
+            // Avoid null refs at all costs here
+            int nullIndex = StaticWorld.creatureTemplates.IndexOf(null);
+            if (nullIndex != -1) {
+                throw new InvalidOperationException($"StaticWorld.creatureTemplates has a null value at index {nullIndex}.");
+            }
+
+            // Add default relationship to existing creatures
+            foreach (CreatureTemplate template in StaticWorld.creatureTemplates) {
+                int oldRelationshipsLength = template.relationships.Length;
+
+                Array.Resize(ref template.relationships, StaticWorld.creatureTemplates.Length);
+
+                for (int i = oldRelationshipsLength; i < StaticWorld.creatureTemplates.Length; i++) {
+                    template.relationships[i] = template.relationships[0];
+                }
+            }
+
+            foreach (Critob critob in critobsByType.Values) {
+                critob.EstablishRelationships();
+            }
         }
-
-        // TODO use the following mosquito example to register custom creatures:
-        //public static void AddCustomCreatures()
-        //{
-        //    List<CreatureTemplate> list = new List<CreatureTemplate>(StaticWorld.creatureTemplates);
-
-        //    var tileRes = new List<TileTypeResistance>();
-        //    var connRes = new List<TileConnectionResistance>();
-
-        //    CreatureTemplate preBakedPathingAncestor = list.FirstOrDefault(c => c.type == CreatureTemplate.Type.Fly);
-
-        //    tileRes.Add(new TileTypeResistance(AItile.Accessibility.Air, 1f, PathCost.Legality.Allowed));
-        //    connRes.Add(new TileConnectionResistance(MovementConnection.MovementType.Standard, 1f, PathCost.Legality.Allowed));
-        //    connRes.Add(new TileConnectionResistance(MovementConnection.MovementType.OpenDiagonal, 1f, PathCost.Legality.Allowed));
-        //    connRes.Add(new TileConnectionResistance(MovementConnection.MovementType.ShortCut, 1f, PathCost.Legality.Allowed));
-        //    connRes.Add(new TileConnectionResistance(MovementConnection.MovementType.NPCTransportation, 10f, PathCost.Legality.Allowed));
-        //    connRes.Add(new TileConnectionResistance(MovementConnection.MovementType.OffScreenMovement, 1f, PathCost.Legality.Allowed));
-        //    connRes.Add(new TileConnectionResistance(MovementConnection.MovementType.BetweenRooms, 1f, PathCost.Legality.Allowed));
-
-        //    CreatureTemplate template = new CreatureTemplate(EnumExt_Mosquitoes.Mosquito, null, tileRes, connRes, new CreatureTemplate.Relationship(CreatureTemplate.Relationship.Type.Eats, 1f)) {
-        //        abstractedLaziness = 200,
-        //        roamBetweenRoomsChance = 0.07f,
-        //        baseDamageResistance = 0.95f,
-        //        baseStunResistance = 0.6f,
-        //        doPreBakedPathing = false,
-        //        offScreenSpeed = 0.1f,
-        //        AI = true,
-        //        requireAImap = true,
-        //        bodySize = 0.5f,
-        //        stowFoodInDen = true,
-        //        shortcutSegments = 2,
-        //        preBakedPathingAncestor = preBakedPathingAncestor,
-        //        grasps = 1,
-        //        visualRadius = 800f,
-        //        movementBasedVision = 0.65f,
-        //        communityInfluence = 0.1f,
-        //        waterRelationship = CreatureTemplate.WaterRelationship.AirAndSurface,
-        //        waterPathingResistance = 2f,
-        //        canFly = true,
-        //        meatPoints = 3,
-        //        dangerousToPlayer = 0.4f
-        //    };
-
-        //    list.Add(template);
-
-
-
-        //    int length = Enum.GetValues(typeof(CreatureTemplate.Type)).Length;
-
-        //    StaticWorld.creatureTemplates = new CreatureTemplate[length];
-
-        //    for (int i = 0; i < list.Count; i++) {
-        //        int type = (int)list[i].type;
-        //        if (type != -1) {
-        //            if (StaticWorld.creatureTemplates.Length <= type) {
-        //                Array.Resize(ref StaticWorld.creatureTemplates, type + 1);
-        //            }
-        //            StaticWorld.creatureTemplates[type] = list[i];
-        //        }
-        //    }
-
-        //    for (int j = 0; j < StaticWorld.creatureTemplates.Length; j++) {
-        //        CreatureTemplate creatureTemplate2 = StaticWorld.creatureTemplates[j];
-        //        if (creatureTemplate2 == null) {
-        //            creatureTemplate2 = StaticWorld.creatureTemplates[j] = new CreatureTemplate((CreatureTemplate.Type)j, null, new List<TileTypeResistance>(), new List<TileConnectionResistance>(), new CreatureTemplate.Relationship(CreatureTemplate.Relationship.Type.Ignores, 0f));
-        //        }
-        //        if (creatureTemplate2.relationships.Length < length) {
-        //            Array.Resize(ref creatureTemplate2.relationships, length);
-        //            for (int k = creatureTemplate2.relationships.Length; k < length; k++) {
-        //                creatureTemplate2.relationships[k] = creatureTemplate2.relationships[0];
-        //            }
-        //        }
-        //    }
-
-        //    for (int l = 0; l < StaticWorld.creatureTemplates.Length; l++) {
-        //        Debug.Log($"{l}: {StaticWorld.creatureTemplates[l].type}, {StaticWorld.creatureTemplates[l].relationships?.Length.ToString() ?? "NULL"} relationships");
-        //    }
-
-        //    StaticWorld.EstablishRelationship(EnumExt_Mosquitoes.Mosquito, CreatureTemplate.Type.Slugcat, new CreatureTemplate.Relationship(CreatureTemplate.Relationship.Type.Eats, 1f));
-        //}
 
         private void PlayerGrabbed(On.Player.orig_Grabbed orig, Player self, Creature.Grasp grasp)
         {
