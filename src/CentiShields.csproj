@@ -2,7 +2,8 @@
 
   <PropertyGroup>
     <TargetFramework>net35</TargetFramework>
-    <LangVersion>7.3</LangVersion>
+    <LangVersion>9.0</LangVersion>
+    <WarningsAsErrors>nullable</WarningsAsErrors>
     <GenerateDocumentationFile>True</GenerateDocumentationFile>
   </PropertyGroup>
 

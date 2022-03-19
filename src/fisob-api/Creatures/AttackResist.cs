@@ -1,4 +1,5 @@
-﻿namespace CFisobs.Creatures
+﻿// Generated from RegEx
+namespace CFisobs.Creatures
 {
     public struct AttackResist
     {

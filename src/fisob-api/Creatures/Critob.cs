@@ -1,47 +1,69 @@
-﻿using System.Collections.Generic;
-using System.Collections.ObjectModel;
+﻿#nullable enable
+using CFisobs.Common;
+using CFisobs.Core;
+using System.Collections.Generic;
+using CreatureType = CreatureTemplate.Type;
 
 namespace CFisobs.Creatures
 {
-    public abstract class Critob : Fisob
+    public abstract class Critob : IContent, ICommon
     {
-        private readonly List<CreatureTemplate.Type> childTypes = new List<CreatureTemplate.Type>();
+        private readonly List<SandboxUnlock> sandboxUnlocks = new();
 
-        protected Critob(string id, string name) : base(id)
+        protected Critob(CreatureType type, string name)
         {
-            Type = new LazyEnum<CreatureTemplate.Type>(id);
+            Type = type;
             Name = name;
-
-            ChildTypes = new ReadOnlyCollection<CreatureTemplate.Type>(childTypes);
         }
 
-        internal void AddChildType(CreatureTemplate.Type childType) => childTypes.Add(childType);
-
         public string Name { get; }
+        public CreatureType Type { get; }
+        public Icon Icon { get; set; } = new NoIcon();
 
-        new public LazyEnum<CreatureTemplate.Type> Type { get; }
-
-        public ReadOnlyCollection<CreatureTemplate.Type> ChildTypes { get; }
-
-        public virtual void KillsMatter(CreatureTemplate.Type type, ref bool ret) { }
-
-        public abstract IEnumerable<CreatureTemplate> GetTemplates();
-
-        public abstract void EstablishRelationships();
-
-        public abstract Creature GetRealizedCreature(AbstractCreature acrit);
-
-        public abstract ArtificialIntelligence GetRealizedAI(AbstractCreature acrit);
-
-        public virtual AbstractCreatureAI GetAbstractAI(AbstractCreature acrit, World world) => null;
-
-        public virtual CreatureState GetState(AbstractCreature acrit) => null;
-
+        // TODO: Remark that SandboxData will be added if coming from sandbox mode.
+        public virtual CreatureState GetState(AbstractCreature acrit) => new HealthState(acrit);
         public virtual void Init(AbstractCreature acrit, World world, WorldCoordinate pos, EntityID id) { }
+        public virtual bool GraspParalyzesPlayer(Creature.Grasp grasp) => false;
+        public virtual void KillsMatter(CreatureType type, ref bool ret) { }
+        public virtual ItemProperties? Properties(PhysicalObject forObject) => null;
 
-        public virtual bool GraspParalyzesPlayer(Creature.Grasp grasp)
+        // Must be non-null if AI is true; should be null if AI is false
+        public abstract AbstractCreatureAI? GetAbstractAI(AbstractCreature acrit, World world);
+        // Must be non-null if AI is true; should be null if AI is false
+        public abstract Creature GetRealizedCreature(AbstractCreature acrit);
+        public abstract IEnumerable<CreatureTemplate> GetTemplates();
+        public abstract void EstablishRelationships();
+        public abstract ArtificialIntelligence? GetRealizedAI(AbstractCreature acrit);
+
+        public virtual void LoadResources(RainWorld rainWorld)
         {
-            return false;
+            string iconName = Ext.LoadAtlasFromEmbeddedResource($"icon_{Type}") ? $"icon_{Type}" : "Futile_White";
+
+            if (Icon is NoIcon) {
+                Icon = new SimpleIcon(iconName, Ext.DefaultIconColor);
+            }
+        }
+
+        public void RegisterUnlock(SandboxUnlock unlock)
+        {
+            sandboxUnlocks.Add(unlock);
+        }
+
+        Either<AbstractPhysicalObject.AbstractObjectType, CreatureType> ICommon.Type => Type;
+
+        IList<SandboxUnlock> ICommon.SandboxUnlocks => sandboxUnlocks;
+
+        IEnumerable<Registry> IContent.GetRegistries()
+        {
+            yield return CritobRegistry.Instance;
+            yield return CommonRegistry.Instance;
+        }
+
+        AbstractWorldEntity ICommon.ParseFromSandbox(World world, EntitySaveData data, SandboxUnlock unlock)
+        {
+            string creatureString = $"{data}<cB>SandboxData<cC>{unlock.Data}";
+
+            return SaveState.AbstractCreatureFromString(world, creatureString, false);
         }
     }
 }

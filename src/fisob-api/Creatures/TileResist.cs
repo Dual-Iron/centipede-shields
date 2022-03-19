@@ -1,8 +1,9 @@
-﻿namespace CFisobs.Creatures
+﻿// Generated from RegEx
+namespace CFisobs.Creatures
 {
     public struct TileResist
     {
-        public PathCost OffScreen; // when abstracted
+        public PathCost OffScreen; // used when abstracted
         public PathCost Floor;
         public PathCost Corridor;
         public PathCost Climb;

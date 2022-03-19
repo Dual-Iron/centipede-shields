@@ -1,20 +1,34 @@
-﻿using CFisobs;
+﻿using CFisobs.Common;
+using CFisobs.Core;
+using CFisobs.Items;
+using System.Linq;
 using UnityEngine;
 
 namespace CentiShields
 {
+    /// <inheritdoc/>
+    public static class EnumExt_CentiShields
+    {
+        /// <inheritdoc/>
+        public static AbstractPhysicalObject.AbstractObjectType CentiShield;
+        /// <inheritdoc/>
+        public static MultiplayerUnlocks.SandboxUnlockID RedCentiShield;
+        /// <inheritdoc/>
+        public static MultiplayerUnlocks.SandboxUnlockID OrangeCentiShield;
+    }
+    
     sealed class CentiShieldFisob : Fisob
     {
-        public static readonly CentiShieldFisob Instance = new CentiShieldFisob();
+        private static readonly CentiShieldProperties properties = new();
 
-        private static readonly CentiShieldProperties properties = new CentiShieldProperties();
-
-        private CentiShieldFisob() : base("centipede_shield")
+        public CentiShieldFisob() : base(EnumExt_CentiShields.CentiShield)
         {
+            // If you don't want to manually implement an icon, omit this line.
+            // Fisobs would autoload the `icon_CentiShield` embedded resource for you.
             Icon = new CentiShieldIcon();
 
-            SandboxUnlocks.Add(new SandboxUnlock("centipede_shield_red", 0));
-            SandboxUnlocks.Add(new SandboxUnlock("centipede_shield_orange", 70));
+            RegisterUnlock(new(EnumExt_CentiShields.RedCentiShield, 0));
+            RegisterUnlock(new(EnumExt_CentiShields.OrangeCentiShield, 70));
         }
 
         public override AbstractPhysicalObject Parse(World world, EntitySaveData saveData, SandboxUnlock unlock)
@@ -45,27 +59,53 @@ namespace CentiShields
             return result;
         }
 
-        public override FisobProperties GetProperties(PhysicalObject forObject)
+        public override ItemProperties Properties(PhysicalObject forObject)
         {
             return properties;
         }
     }
 
-    sealed class CentiShieldIcon : IFisobIcon
+    sealed class CentiShieldIcon : Icon
     {
-        int IFisobIcon.Data(AbstractPhysicalObject apo)
+        // Vanilla only gives you one int field to store all your custom data.
+        // In this case, that int field is used to store the shield's hue (scaled by 1000).
+        public override int Data(AbstractPhysicalObject apo)
         {
             return apo is CentiShieldAbstract shield ? (int)(shield.hue * 1000f) : 0;
         }
 
-        Color IFisobIcon.SpriteColor(int data)
+        public override Color SpriteColor(int data)
         {
             return RWCustom.Custom.HSL2RGB(data / 1000f, 0.65f, 0.4f);
         }
 
-        string IFisobIcon.SpriteName(int data)
+        public override string SpriteName(int data)
         {
-            return "icon_centipede_shield";
+            // Fisobs autoloads the embedded resource named `icon_{Type}` automatically
+            // For CentiShields, this is `icon_CentiShield`
+            return "icon_CentiShield";
+        }
+    }
+
+    sealed class CentiShieldProperties : ItemProperties
+    {
+        public override void Throwable(Player player, ref bool throwable)
+            => throwable = false;
+
+        public override void ScavCollectScore(Scavenger scavenger, ref int score)
+            => score = 3;
+
+        public override void Grabability(Player player, ref Player.ObjectGrabability grabability)
+        {
+            // The player can only grab one centishield at a time,
+            // but that shouldn't prevent them from grabbing a spear,
+            // so don't use Player.ObjectGrabability.BigOneHand
+
+            if (player.grasps.Any(g => g?.grabbed is CentiShield)) {
+                grabability = Player.ObjectGrabability.CantGrab;
+            } else {
+                grabability = Player.ObjectGrabability.OneHand;
+            }
         }
     }
 }

@@ -1,14 +1,42 @@
-﻿using UnityEngine;
+﻿#nullable enable
+using CFisobs.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using CFisobs.Creatures;
+using UnityEngine;
+using CreatureType = CreatureTemplate.Type;
 
-namespace CFisobs
+namespace CFisobs.Creatures
 {
-    public sealed partial class FisobRegistry
+    public sealed class CritobRegistry : Registry
     {
-        void ApplyCreatures()
+        public static CritobRegistry Instance { get; } = new CritobRegistry();
+
+        readonly HashSet<string> critStrings = new HashSet<string>();
+        readonly Dictionary<CreatureType, Critob> critobs = new Dictionary<CreatureType, Critob>();
+
+        CritobRegistry()
+        {
+            string[] names = Enum.GetNames(typeof(CreatureType));
+            string[] namesCulled = new string[31];
+            Array.Copy(names, namesCulled, 31);
+            critStrings = new HashSet<string>(namesCulled, StringComparer.OrdinalIgnoreCase);
+        }
+
+        protected internal override void Process(IContent entry)
+        {
+            if (entry is Critob critob) {
+                if (!critStrings.Add(critob.Type.ToString())) {
+                    throw RegisterException.DuplicateID(critob.Type.ToString());
+                }
+                if (!Content.IsValidID(critob.Type.ToString())) {
+                    throw RegisterException.InvalidID(critob.Type.ToString());
+                }
+                critobs[critob.Type] = critob;
+            }
+        }
+
+        protected internal override void Apply()
         {
             RegisterCustomCreatures();
 
@@ -25,26 +53,22 @@ namespace CFisobs
 
         private void RegisterCustomCreatures()
         {
-            var types = (CreatureTemplate.Type[])Enum.GetValues(typeof(CreatureTemplate.Type));
+            var types = (CreatureType[])Enum.GetValues(typeof(CreatureType));
             var oldTemplatesCount = StaticWorld.creatureTemplates.Length;
             var newTemplates = new List<CreatureTemplate>(types.Length - oldTemplatesCount);
 
             // Get new critob templates
-            foreach (Critob critob in critobsByType.Values) {
-                var templates = critob.GetTemplates()?.ToList() ?? throw new InvalidOperationException($"Critob \"{critob.ID}\" returned null in GetTemplates().");
+            foreach (Critob critob in critobs.Values) {
+                var templates = critob.GetTemplates()?.ToList() ?? throw new InvalidOperationException($"Critob \"{critob.Type}\" returned null in GetTemplates().");
 
                 if (!templates.Any(t => t.type == critob.Type)) {
-                    throw new InvalidOperationException($"Critob \"{critob.ID}\" does not have a template for its type, \"CreatureTemplate.Type::{critob.Type}\".");
+                    throw new InvalidOperationException($"Critob \"{critob.Type}\" does not have a template for its type, \"CreatureTemplate.Type::{critob.Type}\".");
                 }
                 if (templates.FirstOrDefault(t => t.TopAncestor().type != critob.Type) is CreatureTemplate offender) {
-                    throw new InvalidOperationException($"The template with type \"{offender.type}\" from critob \"{critob.ID}\" must have an ancestor of type \"CreatureTemplate.Type::{critob.Type}\".");
+                    throw new InvalidOperationException($"The template with type \"{offender.type}\" from critob \"{critob.Type}\" must have an ancestor of type \"CreatureTemplate.Type::{critob.Type}\".");
                 }
 
                 newTemplates.AddRange(templates);
-
-                foreach (var template in newTemplates) {
-                    critob.AddChildType(template.type);
-                }
             }
 
             // Add new critob templates to StaticWorld.creatureTemplates
@@ -79,18 +103,18 @@ namespace CFisobs
                 }
             }
 
-            foreach (Critob critob in critobsByType.Values) {
+            foreach (Critob critob in critobs.Values) {
                 critob.EstablishRelationships();
             }
         }
 
-        private void PlayerGrabbed(On.Player.orig_Grabbed orig, Player self, Creature.Grasp grasp)
+        private void PlayerGrabbed(On.Player.orig_Grabbed orig, Player self, Creature.Grasp g)
         {
-            orig(self, grasp);
+            orig(self, g);
 
-            if (grasp?.grabber?.abstractCreature != null && TryGet(grasp.grabber.abstractCreature.creatureTemplate.TopAncestor().type, out var critob) && critob.GraspParalyzesPlayer(grasp)) {
+            if (g?.grabber?.abstractCreature != null && critobs.TryGetValue(g.grabber.abstractCreature.creatureTemplate.TopAncestor().type, out var critob) && critob.GraspParalyzesPlayer(g)) {
                 self.dangerGraspTime = 0;
-                self.dangerGrasp = grasp;
+                self.dangerGrasp = g;
             }
         }
 
@@ -98,17 +122,19 @@ namespace CFisobs
         {
             orig(self);
 
-            if (TryGet(self.creatureTemplate.TopAncestor().type, out var crit)) {
+            if (critobs.TryGetValue(self.creatureTemplate.TopAncestor().type, out var crit)) {
                 if (self.abstractAI != null && self.creatureTemplate.AI) {
                     self.abstractAI.RealAI = crit.GetRealizedAI(self)
                         ?? throw new InvalidOperationException($"{crit.GetType()}::GetRealizedAI returned null but template.AI was true!");
+                } else if (!self.creatureTemplate.AI && crit.GetRealizedAI(self) != null) {
+                    Debug.LogError($"{crit.GetType()}::GetRealizedAI returned a non-null object but template.AI was false!");
                 }
             }
         }
 
         private void Realize(On.AbstractCreature.orig_Realize orig, AbstractCreature self)
         {
-            if (self.realizedCreature == null && TryGet(self.creatureTemplate.TopAncestor().type, out var crit)) {
+            if (self.realizedCreature == null && critobs.TryGetValue(self.creatureTemplate.TopAncestor().type, out var crit)) {
                 self.realizedObject = crit.GetRealizedCreature(self)
                     ?? throw new InvalidOperationException($"{crit.GetType()}::GetRealizedCreature returned null!");
 
@@ -131,15 +157,15 @@ namespace CFisobs
         {
             orig(self, world, template, real, pos, id);
 
-            if (TryGet(template.TopAncestor().type, out var crit)) {
+            if (critobs.TryGetValue(template.TopAncestor().type, out var crit)) {
                 // Set creature state
-                self.state = crit.GetState(self) ?? new HealthState(self);
+                self.state = crit.GetState(self);
 
                 // Set creature AI
-                AbstractCreatureAI abstractAI = crit.GetAbstractAI(self, world);
+                AbstractCreatureAI? abstractAI = crit.GetAbstractAI(self, world);
 
                 if (template.AI) {
-                    self.abstractAI = abstractAI ?? new AbstractCreatureAI(world, self);
+                    self.abstractAI = abstractAI ?? throw new ArgumentNullException($"{crit.GetType()}::GetAbstractAI returned null but template.AI was true!");
 
                     bool setDenPos = pos.abstractNode > -1 && pos.abstractNode < self.Room.nodes.Length
                         && self.Room.nodes[pos.abstractNode].type == AbstractRoomNode.Type.Den && !pos.TileDefined;
@@ -147,7 +173,7 @@ namespace CFisobs
                     if (setDenPos) {
                         abstractAI.denPosition = pos;
                     }
-                } else if (abstractAI is object) {
+                } else if (abstractAI is not null) {
                     Debug.LogError($"{crit.GetType()}::GetAbstractAI returned a non-null object but template.AI was false!");
                 }
 
@@ -156,10 +182,10 @@ namespace CFisobs
             }
         }
 
-        private bool KillsMatter(On.CreatureSymbol.orig_DoesCreatureEarnATrophy orig, CreatureTemplate.Type creature)
+        private bool KillsMatter(On.CreatureSymbol.orig_DoesCreatureEarnATrophy orig, CreatureType creature)
         {
             var ret = orig(creature);
-            if (TryGet(StaticWorld.GetCreatureTemplate(creature).TopAncestor().type, out var critob)) {
+            if (critobs.TryGetValue(StaticWorld.GetCreatureTemplate(creature).TopAncestor().type, out var critob)) {
                 critob.KillsMatter(creature, ref ret);
             }
             return ret;
@@ -167,15 +193,15 @@ namespace CFisobs
 
         private IconSymbol.IconSymbolData CreatureSymbol_SymbolDataFromCreature(On.CreatureSymbol.orig_SymbolDataFromCreature orig, AbstractCreature creature)
         {
-            if (TryGet(creature.creatureTemplate.type, out var critob)) {
-                return new IconSymbol.IconSymbolData(creature.creatureTemplate.type, ObjType.Creature, critob.Icon.Data(creature));
+            if (critobs.TryGetValue(creature.creatureTemplate.type, out var critob)) {
+                return new IconSymbol.IconSymbolData(creature.creatureTemplate.type, 0, critob.Icon.Data(creature));
             }
             return orig(creature);
         }
 
         private Color CreatureSymbol_ColorOfCreature(On.CreatureSymbol.orig_ColorOfCreature orig, IconSymbol.IconSymbolData iconData)
         {
-            if (TryGet(iconData.critType, out var critob)) {
+            if (critobs.TryGetValue(iconData.critType, out var critob)) {
                 return critob.Icon.SpriteColor(iconData.intData);
             }
             return orig(iconData);
@@ -183,7 +209,7 @@ namespace CFisobs
 
         private string CreatureSymbol_SpriteNameOfCreature(On.CreatureSymbol.orig_SpriteNameOfCreature orig, IconSymbol.IconSymbolData iconData)
         {
-            if (TryGet(iconData.critType, out var critob)) {
+            if (critobs.TryGetValue(iconData.critType, out var critob)) {
                 return critob.Icon.SpriteName(iconData.intData);
             }
             return orig(iconData);

@@ -1,14 +1,14 @@
-﻿using System;
+﻿#nullable enable
+using System;
 
-namespace CFisobs
+namespace CFisobs.Core
 {
     /// <summary>
     /// Represents saved information about <see cref="AbstractPhysicalObject"/> instances.
     /// </summary>
     public readonly struct EntitySaveData
     {
-        private readonly AbstractPhysicalObject.AbstractObjectType objType;
-        private readonly CreatureTemplate.Type critType;
+        private readonly Either<AbstractPhysicalObject.AbstractObjectType, CreatureTemplate.Type> type;
 
         /// <summary>
         /// The APO's ID.
@@ -30,10 +30,9 @@ namespace CFisobs
         /// Initializes a new instance of the <see cref="EntitySaveData"/> struct.
         /// </summary>
         /// <remarks>Do not use this constructor. Call <see cref="CreateFrom(AbstractPhysicalObject, string)"/> instead.</remarks>
-        internal EntitySaveData(AbstractPhysicalObject.AbstractObjectType objectType, CreatureTemplate.Type creatureType, EntityID id, WorldCoordinate pos, string customData)
+        internal EntitySaveData(Either<AbstractPhysicalObject.AbstractObjectType, CreatureTemplate.Type> type, EntityID id, WorldCoordinate pos, string customData)
         {
-            objType = objectType;
-            critType = creatureType;
+            this.type = type;
             ID = id;
             Pos = pos;
             CustomData = customData;
@@ -52,15 +51,20 @@ namespace CFisobs
                 throw new ArgumentNullException(nameof(customData));
             }
 
-            if (customData.IndexOf('<') != -1) {
-                throw new ArgumentException("Custom data cannot contain < characters.");
+            if (apo is AbstractCreature) {
+                if (customData.IndexOf("<cA>") != -1) {
+                    throw new ArgumentException("Creature data cannot contain <cA> strings.");
+                }
+            }
+            else if (customData.IndexOf('<') != -1) {
+                throw new ArgumentException("Custom data cannot contain the < character.");
             }
 
             if (apo is AbstractCreature crit) {
-                return new EntitySaveData(AbstractPhysicalObject.AbstractObjectType.Creature, crit.creatureTemplate.type, apo.ID, apo.pos, customData);
+                return new EntitySaveData(crit.creatureTemplate.type, apo.ID, apo.pos, customData);
             }
 
-            return new EntitySaveData(apo.type, 0, apo.ID, apo.pos, customData);
+            return new EntitySaveData(apo.type, apo.ID, apo.pos, customData);
         }
 
         /// <summary>
@@ -69,11 +73,15 @@ namespace CFisobs
         /// <returns>A string representation of this data.</returns>
         public override string ToString()
         {
-            if (objType == AbstractPhysicalObject.AbstractObjectType.Creature) {
+            if (type.MatchR(out var critType)) {
                 return $"{critType}<cA>{ID}<cA>{Pos.room}.{Pos.abstractNode}<cA>{CustomData}";
             }
-            string customDataStr = string.IsNullOrEmpty(CustomData) ? "" : $"<oA>{CustomData}";
-            return $"{ID}<oA>{objType}<oA>{Pos.room}.{Pos.x}.{Pos.y}.{Pos.abstractNode}{customDataStr}";
+            if (type.MatchL(out var objectType)) {
+                string customDataStr = string.IsNullOrEmpty(CustomData) ? "" : $"<oA>{CustomData}";
+
+                return $"{ID}<oA>{objectType}<oA>{Pos.room}.{Pos.x}.{Pos.y}.{Pos.abstractNode}{customDataStr}";
+            }
+            return "";
         }
     }
 }

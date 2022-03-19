@@ -1,4 +1,5 @@
-﻿using static Menu.SandboxEditorSelector;
+﻿#nullable enable
+using static Menu.SandboxEditorSelector;
 using UnityEngine;
 using System;
 using ArenaBehaviors;
@@ -7,28 +8,21 @@ using Mono.Cecil.Cil;
 using Menu;
 using System.Linq;
 using CFisobs.Creatures;
+using CFisobs.Core;
+using CFisobs.Items;
 
-namespace CFisobs
+namespace CFisobs.Common
 {
-    public sealed partial class FisobRegistry
+    public sealed partial class CommonRegistry : Registry
     {
-        void ApplySandbox()
-        {
-            IL.Menu.SandboxEditorSelector.ctor += AddCustomFisobs;
-            On.Menu.SandboxEditorSelector.ctor += SandboxEditorSelector_ctor;
-            On.SandboxGameSession.SpawnEntity += SandboxGameSession_SpawnEntity;
-        }
-
         #region Hooking sandbox select menu
         delegate void InsertSandboxEditor(SandboxEditorSelector self, ref int counter);
 
         private void AddCustomFisobs(ILContext il)
         {
-            ILCursor cursor = new ILCursor(il);
+            ILCursor cursor = new(il);
 
             try {
-                _this = new WeakReference(this);
-
                 // Move before creatures are added
                 cursor.GotoNext(MoveType.Before, i => i.MatchLdcI4(0) && i.Next.MatchStloc(3));
 
@@ -50,22 +44,18 @@ namespace CFisobs
             }
         }
 
-        // Use WeakReference to prevent memleak on unloaded mod
-        private static WeakReference _this;
-        private static FisobRegistry This => _this.Target as FisobRegistry;
-
         // Must be static to work around a weird Realm bug (see https://github.com/MonoMod/MonoMod/issues/85)
-        private static void InsertPhysicalObjects(SandboxEditorSelector self, ref int counter) => This?.InsertFisobs(false, self, ref counter);
-        private static void InsertCreatures(SandboxEditorSelector self, ref int counter) => This?.InsertFisobs(true, self, ref counter);
+        private static void InsertPhysicalObjects(SandboxEditorSelector self, ref int counter) => Instance?.InsertEntries(false, self, ref counter);
+        private static void InsertCreatures(SandboxEditorSelector self, ref int counter) => Instance?.InsertEntries(true, self, ref counter);
 
-        private void InsertFisobs(bool creatures, SandboxEditorSelector self, ref int counter)
+        private void InsertEntries(bool creatures, SandboxEditorSelector self, ref int counter)
         {
-            foreach (Fisob fisob in allFisobs) {
-                if (creatures != fisob is Critob) {
+            foreach (var common in all) {
+                if (creatures && common is not Critob || !creatures && common is not Fisob) {
                     continue;
                 }
 
-                foreach (var unlock in fisob.SandboxUnlocks) {
+                foreach (var unlock in common.SandboxUnlocks) {
                     // Reserve slots for:
                     int padding = creatures
                         ? 8     // empty space (3) + randomize button (1) + config buttons (3) + play button (1)
@@ -77,8 +67,8 @@ namespace CFisobs
                     }
 
                     Button button;
-                    if (unlock.IsUnlocked(self.unlocks)) {
-                        button = new CreatureOrItemButton(self.menu, self, new IconSymbol.IconSymbolData(0, fisob.Type, unlock.Data));
+                    if (self.unlocks.SandboxItemUnlocked(unlock.Type)) {
+                        button = new CreatureOrItemButton(self.menu, self, new IconSymbol.IconSymbolData(common.Type.RightOr(0), common.Type.LeftOr(0), unlock.Data));
                     } else {
                         button = new LockedButton(self.menu, self);
                     }
@@ -104,21 +94,32 @@ namespace CFisobs
 
             self.buttons = newArr;
         }
+        #endregion
 
-        private void SandboxEditorSelector_ctor(On.Menu.SandboxEditorSelector.orig_ctor orig, SandboxEditorSelector self, Menu.Menu menu, Menu.MenuObject owner, SandboxOverlayOwner overlayOwner)
+        private void ResetWidthAndHeight(On.Menu.SandboxEditorSelector.orig_ctor orig, SandboxEditorSelector self, Menu.Menu menu, Menu.MenuObject owner, SandboxOverlayOwner overlayOwner)
         {
             Width = 19;
             Height = 4;
             orig(self, menu, owner, overlayOwner);
         }
-        #endregion
 
-        private void SandboxGameSession_SpawnEntity(On.SandboxGameSession.orig_SpawnEntity orig, SandboxGameSession self, SandboxEditor.PlacedIconData p)
+        private bool IsUnlocked(On.MultiplayerUnlocks.orig_SandboxItemUnlocked orig, MultiplayerUnlocks self, MultiplayerUnlocks.SandboxUnlockID unlockID)
+        {
+            foreach (var common in all) {
+                var unlock = common.SandboxUnlocks.FirstOrDefault(s => s.Type == unlockID);
+                if (unlock != null) {
+                    return unlock.IsUnlocked(self);
+                }
+            }
+            return orig(self, unlockID);
+        }
+
+        private void SpawnEntity(On.SandboxGameSession.orig_SpawnEntity orig, SandboxGameSession self, SandboxEditor.PlacedIconData p)
         {
             EntityID id = self.GameTypeSetup.saveCreatures ? p.ID : self.game.GetNewID();
-            WorldCoordinate coord = new WorldCoordinate(0, Mathf.RoundToInt(p.pos.x / 20f), Mathf.RoundToInt(p.pos.y / 20f), -1);
+            WorldCoordinate coord = new(0, Mathf.RoundToInt(p.pos.x / 20f), Mathf.RoundToInt(p.pos.y / 20f), -1);
 
-            if (TryGet(p.data.critType, out var critob)) {
+            if (crits.TryGetValue(p.data.critType, out var critob)) {
                 string stateData = "";
                 if (self.GameTypeSetup.saveCreatures) {
                     var creature = self.arenaSitting.creatures.FirstOrDefault(c => c.creatureTemplate.type == p.data.critType && c.ID == p.ID);
@@ -133,12 +134,12 @@ namespace CFisobs
                     }
                 }
 
-                EntitySaveData data = new EntitySaveData(AbstractPhysicalObject.AbstractObjectType.Creature, p.data.critType, id, coord, stateData);
+                EntitySaveData data = new(p.data.critType, id, coord, stateData);
 
                 DoSpawn(self, p, data, critob);
 
-            } else if (TryGet(p.data.itemType, out var fisob)) {
-                EntitySaveData data = new EntitySaveData(p.data.itemType, 0, id, coord, "");
+            } else if (items.TryGetValue(p.data.itemType, out var fisob)) {
+                EntitySaveData data = new(p.data.itemType, id, coord, "");
 
                 DoSpawn(self, p, data, fisob);
 
@@ -147,25 +148,25 @@ namespace CFisobs
             }
         }
 
-        private static void DoSpawn(SandboxGameSession self, SandboxEditor.PlacedIconData p, EntitySaveData data, Fisob fisob)
+        private static void DoSpawn(SandboxGameSession self, SandboxEditor.PlacedIconData p, EntitySaveData data, ICommon common)
         {
-            SandboxUnlock unlock = fisob.SandboxUnlocks.FirstOrDefault(u => u.Data == p.data.intData);
+            SandboxUnlock? unlock = common.SandboxUnlocks.FirstOrDefault(u => u.Data == p.data.intData);
 
             if (unlock == null) {
-                Debug.LogError($"The fisob \"{fisob.ID}\" had no sandbox unlocks where Data={p.data.intData}.");
+                Debug.LogError($"The fisob \"{common.Type}\" had no sandbox unlocks where Data={p.data.intData}.");
                 return;
             }
 
             try {
-                var entity = fisob.Parse(self.game.world, data, unlock);
+                var entity = common.ParseFromSandbox(self.game.world, data, unlock);
                 if (entity != null) {
                     self.game.world.GetAbstractRoom(0).AddEntity(entity);
                 } else {
-                    Debug.LogError($"The sandbox unlock \"{unlock.ID}\" returned null when being parsed in sandbox mode.");
+                    Debug.LogError($"The sandbox unlock \"{unlock.Type}\" returned null when being parsed in sandbox mode.");
                 }
             } catch (Exception e) {
                 Debug.LogException(e);
-                Debug.LogError($"The sandbox unlock \"{unlock.ID}\" threw an exception when being parsed in sandbox mode.");
+                Debug.LogError($"The sandbox unlock \"{unlock.Type}\" threw an exception when being parsed in sandbox mode.");
             }
         }
     }

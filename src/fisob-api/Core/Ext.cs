@@ -1,13 +1,14 @@
-﻿using System;
+﻿#nullable enable
+using System;
 using System.Linq;
 using UnityEngine;
 
-namespace CFisobs
+namespace CFisobs.Core
 {
     /// <summary>
     /// Provides extension methods for POs and APOs.
     /// </summary>
-    public static class FisobExtensions
+    public static class Ext
     {
         public static Color DefaultIconColor { get; } = Menu.Menu.MenuRGB(Menu.Menu.MenuColors.MediumGrey);
 
@@ -76,23 +77,23 @@ namespace CFisobs
         /// <returns>If the resource was successfully loaded, <see langword="true"/>; otherwise, <see langword="false"/>.</returns>
         public static bool LoadAtlasFromEmbeddedResource(string resource)
         {
-            using (System.IO.Stream stream = typeof(Fisob).Assembly.GetManifestResourceStream(resource)) {
-                if (stream == null) {
-                    return false;
-                }
+            using System.IO.Stream stream = typeof(Ext).Assembly.GetManifestResourceStream(resource);
 
-                byte[] image = new byte[stream.Length];
-
-                stream.Read(image, 0, image.Length);
-
-                Texture2D tex = new Texture2D(1, 1) { filterMode = FilterMode.Point };
-
-                tex.LoadImage(image);
-
-                Futile.atlasManager.LoadAtlasFromTexture(resource, tex);
-
-                return true;
+            if (stream == null) {
+                return false;
             }
+
+            byte[] image = new byte[stream.Length];
+
+            stream.Read(image, 0, image.Length);
+
+            Texture2D tex = new Texture2D(1, 1) { filterMode = FilterMode.Point };
+
+            tex.LoadImage(image);
+
+            Futile.atlasManager.LoadAtlasFromTexture(resource, tex);
+
+            return true;
         }
 
         public static bool IsValidID(string id)

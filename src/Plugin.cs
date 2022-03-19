@@ -1,5 +1,5 @@
 ﻿using BepInEx;
-using CFisobs;
+using CFisobs.Core;
 using System.Linq;
 
 namespace CentiShields
@@ -9,7 +9,7 @@ namespace CentiShields
     {
         public void OnEnable()
         {
-            FisobRegistry.Register(CentiShieldFisob.Instance);
+            Content.Register(new CentiShieldFisob());
 
             // Create centi shields when centipedes lose their shells
             On.Room.AddObject += Room_AddObject;

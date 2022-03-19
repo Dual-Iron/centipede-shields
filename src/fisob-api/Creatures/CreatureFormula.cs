@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿#nullable enable
+using System.Collections.Generic;
 
 namespace CFisobs.Creatures
 {
@@ -12,7 +13,7 @@ namespace CFisobs.Creatures
     {
         public readonly CreatureTemplate.Type Type;
         public readonly string Name;
-        public readonly CreatureTemplate Ancestor;
+        public readonly CreatureTemplate? Ancestor;
 
         public PreBakedPathing Pathing;
         public TileResist TileResistances;
@@ -106,7 +107,7 @@ namespace CFisobs.Creatures
 
         private static void AddConnRes(in ConnectionResist cR)
         {
-            // Thank Stephen Cole Kleene for RegEx. The closest we'll come to C# macros.
+            // Thank Stephen Cole Kleene for RegEx. This is the closest we'll come to C# macros.
 
             // MATCH    public PathCost (\w+);
             // REPLACE  if (cR.$1 != default) cRs.Add(new CR($1, cR.$1.resistance, cR.$1.legality));
