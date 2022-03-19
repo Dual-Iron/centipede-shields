@@ -6,17 +6,6 @@ using UnityEngine;
 
 namespace CentiShields
 {
-    /// <inheritdoc/>
-    public static class EnumExt_CentiShields
-    {
-        /// <inheritdoc/>
-        public static AbstractPhysicalObject.AbstractObjectType CentiShield;
-        /// <inheritdoc/>
-        public static MultiplayerUnlocks.SandboxUnlockID RedCentiShield;
-        /// <inheritdoc/>
-        public static MultiplayerUnlocks.SandboxUnlockID OrangeCentiShield;
-    }
-    
     sealed class CentiShieldFisob : Fisob
     {
         private static readonly CentiShieldProperties properties = new();
@@ -27,8 +16,8 @@ namespace CentiShields
             // Fisobs would autoload the `icon_CentiShield` embedded resource for you.
             Icon = new CentiShieldIcon();
 
-            RegisterUnlock(new(EnumExt_CentiShields.RedCentiShield, 0));
-            RegisterUnlock(new(EnumExt_CentiShields.OrangeCentiShield, 70));
+            RegisterUnlock(new(EnumExt_CentiShields.RedCentiShield, data: 0));
+            RegisterUnlock(new(EnumExt_CentiShields.OrangeCentiShield, data: 70));
         }
 
         public override AbstractPhysicalObject Parse(World world, EntitySaveData saveData, SandboxUnlock unlock)

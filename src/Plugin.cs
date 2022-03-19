@@ -1,4 +1,5 @@
 ﻿using BepInEx;
+using CentiShields.Mosquitoes;
 using CFisobs.Core;
 using System.Linq;
 
@@ -9,7 +10,7 @@ namespace CentiShields
     {
         public void OnEnable()
         {
-            Content.Register(new CentiShieldFisob());
+            Content.Register(new CentiShieldFisob(), new MosquitoCritob());
 
             // Create centi shields when centipedes lose their shells
             On.Room.AddObject += Room_AddObject;

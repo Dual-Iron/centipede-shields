@@ -7,7 +7,7 @@ namespace CFisobs.Common
         public int KillScore { get; }
         public MultiplayerUnlocks.SandboxUnlockID Type { get; }
 
-        public SandboxUnlock(MultiplayerUnlocks.SandboxUnlockID type, int data, int killScore = 1)
+        public SandboxUnlock(MultiplayerUnlocks.SandboxUnlockID type, int data = 0, int killScore = 1)
         {
             Type = type;
             Data = data;

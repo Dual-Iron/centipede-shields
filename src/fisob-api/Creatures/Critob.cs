@@ -22,13 +22,13 @@ namespace CFisobs.Creatures
 
         // TODO: Remark that SandboxData will be added if coming from sandbox mode.
         public virtual CreatureState GetState(AbstractCreature acrit) => new HealthState(acrit);
+        // Defaults to AbstractCreatureAI if null and AI is true, ignored if AI is false
+        public virtual AbstractCreatureAI? GetAbstractAI(AbstractCreature acrit, World world) => null;
         public virtual void Init(AbstractCreature acrit, World world, WorldCoordinate pos, EntityID id) { }
         public virtual bool GraspParalyzesPlayer(Creature.Grasp grasp) => false;
         public virtual void KillsMatter(CreatureType type, ref bool ret) { }
         public virtual ItemProperties? Properties(PhysicalObject forObject) => null;
 
-        // Must be non-null if AI is true; should be null if AI is false
-        public abstract AbstractCreatureAI? GetAbstractAI(AbstractCreature acrit, World world);
         // Must be non-null if AI is true; should be null if AI is false
         public abstract Creature GetRealizedCreature(AbstractCreature acrit);
         public abstract IEnumerable<CreatureTemplate> GetTemplates();
@@ -61,9 +61,10 @@ namespace CFisobs.Creatures
 
         AbstractWorldEntity ICommon.ParseFromSandbox(World world, EntitySaveData data, SandboxUnlock unlock)
         {
-            string creatureString = $"{data}<cB>SandboxData<cC>{unlock.Data}";
-
-            return SaveState.AbstractCreatureFromString(world, creatureString, false);
+            var creatureString = $"{data}<cB>SandboxData<cC>{unlock.Data}";
+            var crit = SaveState.AbstractCreatureFromString(world, creatureString, false);
+            crit.pos = data.Pos;
+            return crit;
         }
     }
 }

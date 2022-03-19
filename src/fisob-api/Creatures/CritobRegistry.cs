@@ -124,8 +124,7 @@ namespace CFisobs.Creatures
 
             if (critobs.TryGetValue(self.creatureTemplate.TopAncestor().type, out var crit)) {
                 if (self.abstractAI != null && self.creatureTemplate.AI) {
-                    self.abstractAI.RealAI = crit.GetRealizedAI(self)
-                        ?? throw new InvalidOperationException($"{crit.GetType()}::GetRealizedAI returned null but template.AI was true!");
+                    self.abstractAI.RealAI = crit.GetRealizedAI(self) ?? throw new InvalidOperationException($"{crit.GetType()}::GetRealizedAI returned null but template.AI was true!");
                 } else if (!self.creatureTemplate.AI && crit.GetRealizedAI(self) != null) {
                     Debug.LogError($"{crit.GetType()}::GetRealizedAI returned a non-null object but template.AI was false!");
                 }
@@ -135,8 +134,7 @@ namespace CFisobs.Creatures
         private void Realize(On.AbstractCreature.orig_Realize orig, AbstractCreature self)
         {
             if (self.realizedCreature == null && critobs.TryGetValue(self.creatureTemplate.TopAncestor().type, out var crit)) {
-                self.realizedObject = crit.GetRealizedCreature(self)
-                    ?? throw new InvalidOperationException($"{crit.GetType()}::GetRealizedCreature returned null!");
+                self.realizedObject = crit.GetRealizedCreature(self) ?? throw new InvalidOperationException($"{crit.GetType()}::GetRealizedCreature returned null!");
 
                 self.InitiateAI();
 
@@ -157,28 +155,28 @@ namespace CFisobs.Creatures
         {
             orig(self, world, template, real, pos, id);
 
-            if (critobs.TryGetValue(template.TopAncestor().type, out var crit)) {
+            if (critobs.TryGetValue(template.TopAncestor().type, out var critob)) {
                 // Set creature state
-                self.state = crit.GetState(self);
+                self.state = critob.GetState(self);
 
                 // Set creature AI
-                AbstractCreatureAI? abstractAI = crit.GetAbstractAI(self, world);
+                AbstractCreatureAI? abstractAI = critob.GetAbstractAI(self, world);
 
-                if (template.AI) {
-                    self.abstractAI = abstractAI ?? throw new ArgumentNullException($"{crit.GetType()}::GetAbstractAI returned null but template.AI was true!");
+                if (template.AI && abstractAI != null) {
+                    self.abstractAI = abstractAI;
 
                     bool setDenPos = pos.abstractNode > -1 && pos.abstractNode < self.Room.nodes.Length
                         && self.Room.nodes[pos.abstractNode].type == AbstractRoomNode.Type.Den && !pos.TileDefined;
 
                     if (setDenPos) {
-                        abstractAI.denPosition = pos;
+                        self.abstractAI.denPosition = pos;
                     }
-                } else if (abstractAI is not null) {
-                    Debug.LogError($"{crit.GetType()}::GetAbstractAI returned a non-null object but template.AI was false!");
+                } else if (abstractAI != null) {
+                    Debug.LogError($"{critob.GetType()}::GetAbstractAI returned a non-null object but template.AI was false!");
                 }
 
                 // Arbitrary setup
-                crit.Init(self, world, pos, id);
+                critob.Init(self, world, pos, id);
             }
         }
 

@@ -62,7 +62,7 @@ namespace CFisobs.Core
         /// Gets a string representation of an APO.
         /// </summary>
         /// <param name="apo">The abstract physical object.</param>
-        /// <param name="customData">Extra data associated with the abstract physical object. This data should never contain &lt; characters.</param>
+        /// <param name="customData">Extra data associated with the abstract physical object. For creatures, this should be <see cref="CreatureState"/> data.</param>
         /// <returns>A string representing this APO, for use in <see cref="AbstractPhysicalObject.ToString"/>.</returns>
         /// <exception cref="ArgumentException">Thrown when <paramref name="customData"/> contains &lt; characters.</exception>
         public static string SaveToString(this AbstractPhysicalObject apo, string customData = "")

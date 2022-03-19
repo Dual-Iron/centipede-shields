@@ -24,19 +24,20 @@ namespace CFisobs.Creatures
         public bool HasAI;
         public CreatureTemplate.Relationship DefaultRelationship;
 
-        public CreatureFormula(Critob critob) : this(critob.Type, critob.Name)
+        public CreatureFormula(Critob critob) : this(null, critob.Type, critob.Name)
         { }
 
-        public CreatureFormula(CreatureTemplate.Type type, string name)
+        public CreatureFormula(CreatureTemplate? ancestor, CreatureTemplate.Type type, string name)
         {
+            Ancestor = ancestor;
             Type = type;
             Name = name;
         }
 
         // Reuse these lists because there's no reason not to.
         // Not thread-safe but who cares
-        static readonly List<TTR> tRs = new List<TTR>(capacity: 8);
-        static readonly List<CR> cRs = new List<CR>(capacity: 24);
+        static readonly List<TTR> tRs = new(capacity: 8);
+        static readonly List<CR> cRs = new(capacity: 24);
 
         public CreatureTemplate IntoTemplate()
         {

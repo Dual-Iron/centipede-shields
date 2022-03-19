@@ -1,5 +1,6 @@
 ﻿#nullable enable
 using System;
+using System.Text.RegularExpressions;
 
 namespace CFisobs.Core
 {
@@ -38,6 +39,9 @@ namespace CFisobs.Core
             CustomData = customData;
         }
 
+        // Catches stuff like `<`, `<cA`, `<cD`, `<abc` etc
+        readonly static Regex invalidCreatureData = new("<[^c]?[^B-C]?");
+
         /// <summary>
         /// Creates an instance of the <see cref="EntitySaveData"/> struct.
         /// </summary>
@@ -52,12 +56,12 @@ namespace CFisobs.Core
             }
 
             if (apo is AbstractCreature) {
-                if (customData.IndexOf("<cA>") != -1) {
-                    throw new ArgumentException("Creature data cannot contain <cA> strings.");
+                if (invalidCreatureData.Match(customData) is Match m) {
+                    throw new ArgumentException($"Creature data cannot contain certain patterns. The pattern \"{m.Value}\" is disallowed.");
                 }
             }
             else if (customData.IndexOf('<') != -1) {
-                throw new ArgumentException("Custom data cannot contain the < character.");
+                throw new ArgumentException("Item data cannot contain the < character.");
             }
 
             if (apo is AbstractCreature crit) {

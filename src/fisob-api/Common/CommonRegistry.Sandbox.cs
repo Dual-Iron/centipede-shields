@@ -120,7 +120,8 @@ namespace CFisobs.Common
             WorldCoordinate coord = new(0, Mathf.RoundToInt(p.pos.x / 20f), Mathf.RoundToInt(p.pos.y / 20f), -1);
 
             if (crits.TryGetValue(p.data.critType, out var critob)) {
-                string stateData = "";
+                EntitySaveData? data = null;
+
                 if (self.GameTypeSetup.saveCreatures) {
                     var creature = self.arenaSitting.creatures.FirstOrDefault(c => c.creatureTemplate.type == p.data.critType && c.ID == p.ID);
                     if (creature != null) {
@@ -130,13 +131,11 @@ namespace CFisobs.Common
                             creature.state.CycleTick();
                         }
 
-                        stateData = creature.state.ToString();
+                        data = EntitySaveData.CreateFrom(creature, creature.state.ToString());
                     }
                 }
 
-                EntitySaveData data = new(p.data.critType, id, coord, stateData);
-
-                DoSpawn(self, p, data, critob);
+                DoSpawn(self, p, data ?? new(p.data.critType, id, coord, ""), critob);
 
             } else if (items.TryGetValue(p.data.itemType, out var fisob)) {
                 EntitySaveData data = new(p.data.itemType, id, coord, "");
