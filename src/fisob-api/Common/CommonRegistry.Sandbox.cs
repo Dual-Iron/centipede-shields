@@ -16,8 +16,6 @@ namespace CFisobs.Common
     public sealed partial class CommonRegistry : Registry
     {
         #region Hooking sandbox select menu
-        delegate void InsertSandboxEditor(SandboxEditorSelector self, ref int counter);
-
         private void AddCustomFisobs(ILContext il)
         {
             ILCursor cursor = new(il);
@@ -29,7 +27,7 @@ namespace CFisobs.Common
                 // Call `InsertPhysicalObjects` with `this` and `ref counter`
                 cursor.Emit(OpCodes.Ldarg_0);
                 cursor.Emit(OpCodes.Ldloca_S, il.Body.Variables[0]);
-                cursor.EmitDelegate<InsertSandboxEditor>(InsertPhysicalObjects);
+                cursor.EmitDelegate(InsertPhysicalObjects);
 
                 // Move after creatures are added, before play button is added
                 cursor.GotoNext(MoveType.Before, i => i.MatchLdarg(0) && i.Next.MatchLdcI4(1));
@@ -37,7 +35,7 @@ namespace CFisobs.Common
                 // Call `InsertCreatures` with `this` and `ref counter`
                 cursor.Emit(OpCodes.Ldarg_0);
                 cursor.Emit(OpCodes.Ldloca_S, il.Body.Variables[0]);
-                cursor.EmitDelegate<InsertSandboxEditor>(InsertCreatures);
+                cursor.EmitDelegate(InsertCreatures);
             } catch (Exception e) {
                 Debug.LogException(e);
                 Console.WriteLine($"{nameof(CFisobs)} : Couldn't register fisobs because of exception in {nameof(AddCustomFisobs)}: {e.Message}");

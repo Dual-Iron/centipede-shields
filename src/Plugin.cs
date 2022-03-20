@@ -2,6 +2,7 @@
 using CentiShields.Mosquitoes;
 using CFisobs.Core;
 using System.Linq;
+using UnityEngine;
 
 namespace CentiShields
 {
@@ -40,18 +41,16 @@ namespace CentiShields
 
         private bool Creature_Grab(On.Creature.orig_Grab orig, Creature self, PhysicalObject obj, int graspUsed, int chunkGrabbed, Creature.Grasp.Shareability shareability, float dominance, bool overrideEquallyDominant, bool pacifying)
         {
-            const float maxDistance = 5;
+            const float maxDistance = 8;
 
-            if (obj is Player p && !(self is DropBug)) {
-                var shieldGrasp = p.grasps.FirstOrDefault(g => g?.grabbed is CentiShield);
-                if (shieldGrasp?.grabbed is CentiShield shield && self.bodyChunks.Any(b => (b.pos - shield.firstChunk.pos).magnitude - b.rad - shield.firstChunk.rad < maxDistance)) {
+            if (obj is Creature grabbed && self is not DropBug) {
+                var grasp = grabbed.grasps.FirstOrDefault(g => g?.grabbed is CentiShield);
+                if (grasp?.grabbed is CentiShield shield && self.bodyChunks.Any(b => Vector2.Distance(b.pos, shield.firstChunk.pos) - (b.rad + shield.firstChunk.rad) < maxDistance)) {
                     shield.AllGraspsLetGoOfThisObject(true);
                     shield.Forbid();
                     shield.HitEffect((shield.firstChunk.pos - self.firstChunk.pos).normalized);
-
-                    shield.AddDamage(0.5f);
-
-                    return false;
+                    shield.AddDamage(Mathf.Clamp(dominance, 0.2f, 1f));
+                    self.Stun(20); return false;
                 }
             }
 

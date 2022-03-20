@@ -1,7 +1,10 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using Noise;
 using RWCustom;
 using UnityEngine;
+using static CreatureTemplate.Relationship.Type;
 
 namespace CentiShields.Mosquitoes
 {
@@ -10,23 +13,22 @@ namespace CentiShields.Mosquitoes
         enum Behavior
         {
             Idle,
+            Swarm,
             Flee,
             EscapeRain,
-            ReturnPrey,
             Hunt
         }
 
         sealed class MosquitoTrackedState : RelationshipTracker.TrackedCreatureState
         {
-            public float bloodTaken;
+            public int prickedTime;
         }
 
         public Mosquito bug;
-        public float currentUtility;
         public int tiredOfHuntingCounter;
         public AbstractCreature tiredOfHuntingCreature;
         private Behavior behavior;
-        private int idlePosCounter;
+        private int behaviorCounter;
         private WorldCoordinate tempIdlePos;
 
         public MosquitoAI(AbstractCreature acrit) : base(acrit, acrit.world)
@@ -35,7 +37,7 @@ namespace CentiShields.Mosquitoes
             bug.AI = this;
             AddModule(new StandardPather(this, acrit.world, acrit));
             pathFinder.stepsPerFrame = 20;
-            AddModule(new Tracker(this, 10, 10, 450, 0.5f, 5, 5, 10));
+            AddModule(new Tracker(this, 10, 10, 600, 0.5f, 5, 5, 10));
             AddModule(new ThreatTracker(this, 3));
             AddModule(new RainTracker(this));
             AddModule(new DenFinder(this, acrit));
@@ -51,11 +53,19 @@ namespace CentiShields.Mosquitoes
             behavior = Behavior.Idle;
         }
 
+        public override void CreatureSpotted(bool firstSpot, Tracker.CreatureRepresentation otherCreature)
+        {
+            // If we're wandering aimlessly and we find another pack member, stop what we're doing and hang with them
+            if (behavior == Behavior.Swarm && RandomPackMember() == null) {
+                behaviorCounter = 0;
+            }
+        }
+
         AIModule IUseARelationshipTracker.ModuleToTrackRelationship(CreatureTemplate.Relationship relationship)
         {
             return relationship.type switch {
-                CreatureTemplate.Relationship.Type.Eats => preyTracker,
-                CreatureTemplate.Relationship.Type.Afraid => threatTracker,
+                Eats => preyTracker,
+                Afraid => threatTracker,
                 _ => null
             };
         }
@@ -73,23 +83,22 @@ namespace CentiShields.Mosquitoes
                 dRelation.state.alive = dRelation.trackerRep.representedCreature.state.alive;
             }
 
-            if (dRelation.trackerRep.representedCreature.realizedObject is Creature c && c.State.alive && bug.grasps[0]?.grabbed == c) {
-                state.bloodTaken += bug.bloat - bug.lastBloat;
-            }
-
-            var result = StaticRelationship(dRelation.trackerRep.representedCreature);
             if (!dRelation.state.alive) {
-                result.intensity = 0f;
-            } else if (result.type == CreatureTemplate.Relationship.Type.Eats) {
-                result.intensity = Mathf.Lerp(result.intensity, 0f, Mathf.Sqrt(state.bloodTaken));
-
-                if (result.intensity < 0.1f) {
-                    result.intensity = 1f - result.intensity;
-                    result.type = CreatureTemplate.Relationship.Type.StayOutOfWay;
-                }
+                return new(Ignores, 0f);
             }
 
-            return result;
+            if (dRelation.trackerRep.representedCreature.realizedObject is Creature c && c.State.alive && bug.grasps[0]?.grabbed == c) {
+                state.prickedTime += 2;
+                preyTracker.ForgetPrey(tiredOfHuntingCreature);
+            } else {
+                state.prickedTime -= 1;
+            }
+
+            if (state.prickedTime > 0) {
+                return new(Afraid, 0.5f);
+            }
+
+            return StaticRelationship(dRelation.trackerRep.representedCreature);
         }
 
         public override void Update()
@@ -107,71 +116,81 @@ namespace CentiShields.Mosquitoes
 
             utilityComparer.GetUtilityTracker(threatTracker).weight = Custom.LerpMap(threatTracker.ThreatOfTile(creature.pos, true), 0.1f, 2f, 0.1f, 1f, 0.5f);
 
-            currentUtility = utilityComparer.HighestUtility();
-
-            AIModule aimodule = utilityComparer.HighestUtilityModule();
-            behavior = aimodule switch {
-                ThreatTracker => Behavior.Flee,
-                RainTracker => Behavior.EscapeRain,
-                PreyTracker => Behavior.Hunt,
-                _ => behavior
-            };
-
-            if (currentUtility < 0.02f && !(behavior == Behavior.Hunt && preyTracker.MostAttractivePrey != null)) {
-                behavior = Behavior.Idle;
+            if (utilityComparer.HighestUtility() < 0.02f && (behavior != Behavior.Hunt || preyTracker.MostAttractivePrey == null)) {
+                if (behavior is not Behavior.Idle or Behavior.Swarm) {
+                    behaviorCounter = 0;
+                    behavior = UnityEngine.Random.value < 0.1f ? Behavior.Idle : Behavior.Swarm;
+                }
+            } else {
+                behavior = utilityComparer.HighestUtilityModule() switch {
+                    ThreatTracker => Behavior.Flee,
+                    RainTracker => Behavior.EscapeRain,
+                    PreyTracker => Behavior.Hunt,
+                    _ => behavior
+                };
             }
 
             switch (behavior) {
                 case Behavior.Idle:
-                    bug.runSpeed = Custom.LerpAndTick(bug.runSpeed, 0.5f + 0.5f * Mathf.Max(threatTracker.Utility(), 1f), 0.01f, 0.016666668f);
-                    bool toNewRoom = pathFinder.GetDestination.room != bug.room.abstractRoom.index;
-                    if (!toNewRoom && idlePosCounter <= 0) {
-                        int abstractNode = bug.room.abstractRoom.RandomNodeInRoom().abstractNode;
-                        if (bug.room.abstractRoom.nodes[abstractNode].type == AbstractRoomNode.Type.Exit) {
-                            int num = bug.room.abstractRoom.CommonToCreatureSpecificNodeIndex(abstractNode, bug.Template);
-                            if (num > -1) {
-                                int num2 = bug.room.aimap.ExitDistanceForCreatureAndCheckNeighbours(bug.abstractCreature.pos.Tile, num, bug.Template);
-                                if (num2 > -1 && num2 < 400 && bug.room.game.world.GetAbstractRoom(bug.room.abstractRoom.connections[abstractNode]) is AbstractRoom room) {
-                                    WorldCoordinate worldCoordinate = room.RandomNodeInRoom();
-                                    if (pathFinder.CoordinateReachableAndGetbackable(worldCoordinate)) {
-                                        Debug.Log("scorpion leaving room");
-                                        creature.abstractAI.SetDestination(worldCoordinate);
-                                        idlePosCounter = UnityEngine.Random.Range(200, 500);
-                                        toNewRoom = true;
-                                    }
-                                }
-                            }
-                        }
+                    bug.runSpeed = Custom.LerpAndTick(bug.runSpeed, 0.6f + 0.4f * threatTracker.Utility(), 0.01f, 0.016666668f);
+
+                    WorldCoordinate coord = new(bug.room.abstractRoom.index, UnityEngine.Random.Range(0, bug.room.TileWidth), UnityEngine.Random.Range(0, bug.room.TileHeight), -1);
+                    if (IdleScore(tempIdlePos) > IdleScore(coord)) {
+                        tempIdlePos = coord;
                     }
-                    if (!toNewRoom) {
-                        WorldCoordinate coord = new(bug.room.abstractRoom.index, UnityEngine.Random.Range(0, bug.room.TileWidth), UnityEngine.Random.Range(0, bug.room.TileHeight), -1);
-                        if (IdleScore(coord) < IdleScore(tempIdlePos)) {
-                            tempIdlePos = coord;
-                        }
-                        if (IdleScore(tempIdlePos) < IdleScore(pathFinder.GetDestination) + Custom.LerpMap(idlePosCounter, 0f, 300f, 100f, -300f)) {
-                            SetDestination(tempIdlePos);
-                            idlePosCounter = UnityEngine.Random.Range(200, 800);
-                            tempIdlePos = new WorldCoordinate(bug.room.abstractRoom.index, UnityEngine.Random.Range(0, bug.room.TileWidth), UnityEngine.Random.Range(0, bug.room.TileHeight), -1);
-                        }
+
+                    if (IdleScore(tempIdlePos) < IdleScore(pathFinder.GetDestination) + Custom.LerpMap(behaviorCounter, 0f, 300f, 100f, -300f)) {
+                        SetDestination(tempIdlePos);
+                        behaviorCounter = UnityEngine.Random.Range(100, 400);
+                        tempIdlePos = new WorldCoordinate(bug.room.abstractRoom.index, UnityEngine.Random.Range(0, bug.room.TileWidth), UnityEngine.Random.Range(0, bug.room.TileHeight), -1);
                     }
-                    idlePosCounter--;
+
+                    behaviorCounter--;
                     break;
+
+                case Behavior.Swarm:
+                    bug.runSpeed = Custom.LerpAndTick(bug.runSpeed, 0.3f + 0.7f * threatTracker.Utility(), 1f / 100f, 1f / 60f);
+
+                    if (behaviorCounter <= 0) {
+                        // Try to hang with another pack member, or wander if there are none
+                        var other = RandomPackMember();
+                        if (other != null) {
+                            var newDest = other.BestGuessForPosition();
+                            if (newDest.x != -1 && newDest.y != -1) {
+                                newDest.x += UnityEngine.Random.Range(-10, 10);
+                                newDest.y += UnityEngine.Random.Range(-10, 10);
+                            }
+                            creature.abstractAI.SetDestination(newDest);
+
+                            behaviorCounter = UnityEngine.Random.Range(50, 100);
+                        } else {
+                            creature.abstractAI.SetDestination(creature.abstractAI.MigrationDestination);
+
+                            behaviorCounter = UnityEngine.Random.Range(200, 400);
+                        }
+                    }
+
+                    behaviorCounter--;
+                    break;
+
                 case Behavior.Flee:
                     bug.runSpeed = Custom.LerpAndTick(bug.runSpeed, 1f, 0.01f, 0.1f);
-                    creature.abstractAI.SetDestination(threatTracker.FleeTo(creature.pos, 10, 30, true));
+                    creature.abstractAI.SetDestination(threatTracker.FleeTo(creature.pos, 20, 20, true));
                     break;
+
                 case Behavior.Hunt:
                     bug.runSpeed = Custom.LerpAndTick(bug.runSpeed, 1f, 0.01f, .1f);
                     creature.abstractAI.SetDestination(preyTracker.MostAttractivePrey.BestGuessForPosition());
 
                     tiredOfHuntingCounter++;
-                    if (tiredOfHuntingCounter > 200) {
+                    if (tiredOfHuntingCounter > 100) {
                         tiredOfHuntingCreature = preyTracker.MostAttractivePrey.representedCreature;
                         tiredOfHuntingCounter = 0;
                         preyTracker.ForgetPrey(tiredOfHuntingCreature);
                         tracker.ForgetCreature(tiredOfHuntingCreature);
                     }
                     break;
+
                 case Behavior.EscapeRain:
                     bug.runSpeed = Custom.LerpAndTick(bug.runSpeed, 1f, 0.01f, 0.1f);
                     if (denFinder.GetDenPosition() != null) {
@@ -181,17 +200,23 @@ namespace CentiShields.Mosquitoes
             }
         }
 
+        private Tracker.CreatureRepresentation RandomPackMember()
+        {
+            var others = tracker.creatures.Where(r => r.dynamicRelationship.state.alive && r.dynamicRelationship.currentRelationship.type == Pack).ToList();
+            if (others.Any()) {
+                return others[UnityEngine.Random.Range(0, others.Count)];
+            }
+            return null;
+        }
+
         private float IdleScore(WorldCoordinate coord)
         {
-            if (coord.room != creature.pos.room || !pathFinder.CoordinateReachableAndGetbackable(coord) || bug.room.aimap.getAItile(coord).acc >= AItile.Accessibility.Wall) {
+            if (coord.NodeDefined || coord.room != creature.pos.room || !pathFinder.CoordinateReachableAndGetbackable(coord) || bug.room.aimap.getAItile(coord).acc == AItile.Accessibility.Solid) {
                 return float.MaxValue;
             }
             float result = 1f;
-            if (pathFinder.CoordinateReachableAndGetbackable(coord + new IntVector2(0, -1))) {
-                result += 10f;
-            }
             if (bug.room.aimap.getAItile(coord).narrowSpace) {
-                result += 50f;
+                result += 100f;
             }
             result += threatTracker.ThreatOfTile(coord, true) * 1000f;
             result += threatTracker.ThreatOfTile(bug.room.GetWorldCoordinate((bug.room.MiddleOfTile(coord) + bug.room.MiddleOfTile(creature.pos)) / 2f), true) * 1000f;

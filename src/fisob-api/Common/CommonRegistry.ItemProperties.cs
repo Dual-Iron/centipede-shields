@@ -1,4 +1,8 @@
 ﻿using CFisobs.Core;
+using Mono.Cecil.Cil;
+using MonoMod.Cil;
+using System;
+using UnityEngine;
 
 namespace CFisobs.Common
 {
@@ -61,6 +65,31 @@ namespace CFisobs.Common
             P(obj)?.ScavCollectScore(self.scavenger, ref ret);
 
             return ret;
+        }
+
+        private void Player_ObjectEaten(ILContext il)
+        {
+            try {
+                ILCursor cursor = new(il);
+
+                cursor.GotoNext(MoveType.Before, i => i.MatchStloc(1));
+                cursor.GotoPrev(MoveType.After, i => i.MatchLdloc(0));
+                cursor.Emit(OpCodes.Ldarg_0);
+                cursor.Emit(OpCodes.Ldarg_1);
+                cursor.EmitDelegate(Instance.ModifyIsMeat);
+
+            } catch (Exception e) {
+                Debug.LogException(e);
+                Console.WriteLine($"{nameof(CFisobs)} : Couldn't register fisobs because of exception in {nameof(Player_ObjectEaten)}: {e.Message}");
+            }
+        }
+
+        private bool ModifyIsMeat(bool meat, Player player, IPlayerEdible edible)
+        {
+            if (edible is PhysicalObject o) {
+                P(o)?.Meat(player, ref meat);
+            }
+            return meat;
         }
     }
 }

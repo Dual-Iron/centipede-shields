@@ -40,7 +40,7 @@ namespace CFisobs.Core
         }
 
         // Catches stuff like `<`, `<cA`, `<cD`, `<abc` etc
-        readonly static Regex invalidCreatureData = new("<[^c]?[^B-C]?");
+        static readonly Regex invalidCreatureData = new("<[^c]?[^B-C]?");
 
         /// <summary>
         /// Creates an instance of the <see cref="EntitySaveData"/> struct.
@@ -56,11 +56,10 @@ namespace CFisobs.Core
             }
 
             if (apo is AbstractCreature) {
-                if (invalidCreatureData.Match(customData) is Match m) {
-                    throw new ArgumentException($"Creature data cannot contain certain patterns. The pattern \"{m.Value}\" is disallowed.");
+                if (invalidCreatureData.Match(customData) is Match m && m.Success) {
+                    throw new ArgumentException($"Creature data cannot contain certain patterns. The pattern \"{m}\" is disallowed.");
                 }
-            }
-            else if (customData.IndexOf('<') != -1) {
+            } else if (customData.IndexOf('<') != -1) {
                 throw new ArgumentException("Item data cannot contain the < character.");
             }
 

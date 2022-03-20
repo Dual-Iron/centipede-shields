@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace CentiShields.Mosquitoes
 {
-    sealed class Mosquito : InsectoidCreature
+    sealed class Mosquito : InsectoidCreature, IPlayerEdible
     {
         enum Mode
         {
@@ -23,6 +23,7 @@ namespace CentiShields.Mosquitoes
 
         // IntVector2 stuckTile;
 
+        int explodeCounter;
         int stuckCounter;
         MovementConnection lastFollowedConnection;
         Vector2 travelDir;
@@ -33,7 +34,7 @@ namespace CentiShields.Mosquitoes
         public Mosquito(AbstractCreature acrit) : base(acrit, acrit.world)
         {
             bodyChunks = new BodyChunk[1];
-            bodyChunks[0] = new BodyChunk(this, 0, new Vector2(0f, 0f), 8f, .2f);
+            bodyChunks[0] = new BodyChunk(this, 0, new Vector2(0f, 0f), 8f, .15f);
             bodyChunkConnections = new BodyChunkConnection[0];
 
             needleDir = Custom.RNV();
@@ -98,18 +99,18 @@ namespace CentiShields.Mosquitoes
                         bloat = Mathf.Min(bloat + .003f, 1f);
                     }
                     
-                    if (bloat >= 1f) {
-                        Vector2 vector = firstChunk.pos;
-                        room.AddObject(new Explosion(room, this, vector, 7, 150f, 4.2f, 1.5f, 200f, 0.25f, this, 0.7f, 160f, 1f));
-                        room.AddObject(new Explosion.ExplosionLight(vector, 180f, 1f, 7, Color.red));
-                        room.AddObject(new Explosion.ExplosionLight(vector, 130f, 1f, 3, new Color(1f, 1f, 1f)));
-                        room.AddObject(new ExplosionSpikes(room, vector, 14, 30f, 9f, 7f, 170f, Color.red));
-                        room.AddObject(new ShockWave(vector, 230f, 0.045f, 5));
-                        room.PlaySound(SoundID.Bomb_Explode, firstChunk.pos);
-                        LoseAllGrasps();
-                        Destroy();
+                    if (bloat >= 1f && explodeCounter == 0) {
+                        explodeCounter += 20;
                     }
                     break;
+            }
+
+            if (explodeCounter > 0) {
+                explodeCounter--;
+
+                if (explodeCounter == 0) {
+                    Explode();
+                }
             }
 
             if (Consious) {
@@ -117,6 +118,18 @@ namespace CentiShields.Mosquitoes
             } else {
                 GoThroughFloors = grabbedBy.Any();
             }
+        }
+
+        void Explode()
+        {
+            room.AddObject(new Explosion(room, this, firstChunk.pos, 7, 150f, 4.2f, 1.5f, 200f, 0.25f, this, 0.7f, 160f, 1f));
+            room.AddObject(new Explosion.ExplosionLight(firstChunk.pos, 180f, 1f, 7, Color.red));
+            room.AddObject(new Explosion.ExplosionLight(firstChunk.pos, 130f, 1f, 3, new Color(1f, 1f, 1f)));
+            room.AddObject(new ExplosionSpikes(room, firstChunk.pos, 14, 30f, 9f, 7f, 170f, Color.red));
+            room.AddObject(new ShockWave(firstChunk.pos, 230f, 0.045f, 5));
+            room.PlaySound(SoundID.Bomb_Explode, firstChunk.pos, 0.7f, 1.1f);
+            LoseAllGrasps();
+            Destroy();
         }
 
         void Act()
@@ -159,7 +172,7 @@ namespace CentiShields.Mosquitoes
             GoThroughFloors = moveTo.y < bodyChunks[0].pos.y - 5f;
         }
 
-        private void Run(MovementConnection followingConnection)
+        void Run(MovementConnection followingConnection)
         {
             if (followingConnection.type == MovementConnection.MovementType.ShortCut || followingConnection.type == MovementConnection.MovementType.NPCTransportation) {
                 enteringShortCut = new IntVector2?(followingConnection.StartTile);
@@ -172,28 +185,26 @@ namespace CentiShields.Mosquitoes
             lastFollowedConnection = followingConnection;
         }
 
-        public override void Collide(PhysicalObject otherObject, int myChunk, int otherChunk)
-        {
-            base.Collide(otherObject, myChunk, otherChunk);
-
-            bool movingFast = firstChunk.vel.sqrMagnitude > 10 * 10;
-            bool isPrey = otherObject is Creature c && c.State.alive && Template.CreatureRelationship(c.Template).type == CreatureTemplate.Relationship.Type.Eats;
-            if (Consious && grasps[0] == null && (movingFast || isPrey)) {
-                StickIntoChunk(otherObject, otherChunk);
-            }
-        }
-
         Vector2 StuckInChunkPos(BodyChunk chunk)
         {
             return chunk.owner?.graphicsModule is PlayerGraphics g ? g.drawPositions[chunk.index, 0] : chunk.pos;
         }
 
+        public override void Collide(PhysicalObject otherObject, int myChunk, int otherChunk)
+        {
+            base.Collide(otherObject, myChunk, otherChunk);
+
+            if (Consious && grasps[0] == null && otherObject is Creature c && c.State.alive && AI.preyTracker.MostAttractivePrey?.representedCreature == c.abstractCreature) {
+                StickIntoChunk(otherObject, otherChunk);
+            }
+        }
+
         void StickIntoChunk(PhysicalObject otherObject, int otherChunk)
         {
             stuckCounter = otherObject switch {
-                Creature { State.alive: true } => UnityEngine.Random.Range(100, 200),
-                Creature => UnityEngine.Random.Range(75, 150),
-                _ => UnityEngine.Random.Range(50, 100),
+                Creature { State.alive: true } => UnityEngine.Random.Range(75, 150),
+                Creature => UnityEngine.Random.Range(50, 100),
+                _ => UnityEngine.Random.Range(25, 50),
             };
 
             BodyChunk chunk = otherObject.bodyChunks[otherChunk];
@@ -205,7 +216,7 @@ namespace CentiShields.Mosquitoes
             Grab(otherObject, 0, otherChunk, Grasp.Shareability.CanOnlyShareWithNonExclusive, .5f, false, false);
 
             if (grasps[0]?.grabbed is Creature grabbed) {
-                grabbed.Violence(firstChunk, new Vector2?(Custom.DirVec(firstChunk.pos, chunk.pos) * 3f), chunk, null, DamageType.Stab, 0.07f, 3f);
+                grabbed.Violence(firstChunk, Custom.DirVec(firstChunk.pos, chunk.pos) * 3f, chunk, null, DamageType.Stab, 0.06f, 7f);
             } else {
                 chunk.vel += Custom.DirVec(firstChunk.pos, chunk.pos) * 3f / chunk.mass;
             }
@@ -222,12 +233,58 @@ namespace CentiShields.Mosquitoes
                 CollideWithTerrain = mode == Mode.Free;
 
                 if (mode == Mode.Free) {
+                    abstractPhysicalObject.LoseAllStuckObjects();
                     LoseAllGrasps();
-                    Stun(40);
-                    room.PlaySound(SoundID.Spear_Dislodged_From_Creature, firstChunk, false, 1f, 1.2f);
+                    Stun(20);
+                    room.PlaySound(SoundID.Spear_Dislodged_From_Creature, firstChunk, false, 0.8f, 1.2f);
                 } else {
-                    room.PlaySound(SoundID.Dart_Maggot_Stick_In_Creature, firstChunk);
+                    room.PlaySound(SoundID.Dart_Maggot_Stick_In_Creature, firstChunk, false, 0.8f, 1.2f);
                 }
+            }
+        }
+
+        public override void Violence(BodyChunk source, Vector2? directionAndMomentum, BodyChunk hitChunk, Appendage.Pos hitAppendage, DamageType type, float damage, float stunBonus)
+        {
+            base.Violence(source, directionAndMomentum, hitChunk, hitAppendage, type, damage, stunBonus);
+
+            if (source?.owner is Weapon && directionAndMomentum.HasValue) {
+                hitChunk.vel = source.vel * source.mass / hitChunk.mass;
+            }
+
+            float speed = Mathf.Max(1, directionAndMomentum.GetValueOrDefault().magnitude);
+
+            if (bloat > 0.75f && UnityEngine.Random.value < speed * (bloat - 0.65f)) {
+                explodeCounter += 20;
+
+                Debug.Log("exploded from violence");
+            }
+        }
+
+        int bites = 2;
+
+        int IPlayerEdible.BitesLeft => bites;
+        int IPlayerEdible.FoodPoints => (int)Mathf.Lerp(1f, 3f, bloat);
+        bool IPlayerEdible.Edible => true;
+        bool IPlayerEdible.AutomaticPickUp => false;
+
+        void IPlayerEdible.ThrowByPlayer() { }
+
+        void IPlayerEdible.BitByPlayer(Grasp grasp, bool eu)
+        {
+            if (bloat > 0.75f) {
+                explodeCounter += 20;
+            } else {
+                bites--;
+            }
+
+            room.PlaySound(bites == 0 ? SoundID.Slugcat_Final_Bite_Fly : SoundID.Slugcat_Bite_Fly, firstChunk.pos);
+
+            firstChunk.MoveFromOutsideMyUpdate(eu, grasp.grabber.mainBodyChunk.pos);
+
+            if (bites == 0 && grasp.grabber is Player p) {
+                p.ObjectEaten(this);
+                grasp.Release();
+                Destroy();
             }
         }
     }

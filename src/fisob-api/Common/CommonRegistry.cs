@@ -36,6 +36,7 @@ namespace CFisobs.Common
             On.ScavengerAI.RealWeapon += ScavengerAI_RealWeapon;
             On.ScavengerAI.WeaponScore += ScavengerAI_WeaponScore;
             On.ScavengerAI.CollectScore_PhysicalObject_bool += ScavengerAI_CollectScore_PhysicalObject_bool;
+            IL.Player.ObjectEaten += Player_ObjectEaten;
 
             // Sandbox
             if (all.Any(c => c.SandboxUnlocks.Count > 0)) {

@@ -1,4 +1,5 @@
-﻿using CFisobs.Creatures;
+﻿using CFisobs.Common;
+using CFisobs.Creatures;
 using System.Collections.Generic;
 using static PathCost.Legality;
 using CreatureType = CreatureTemplate.Type;
@@ -63,34 +64,55 @@ namespace CentiShields.Mosquitoes
                 }
             }
 
-            mosquito.Eats(CreatureType.Slugcat, 0.6f);
-            mosquito.AttackedBy(CreatureType.Slugcat, 1f);
+            mosquito.IsInPack(EnumExt_Mosquito.Mosquito, 1f);
 
+            mosquito.Eats(CreatureType.Slugcat, 0.4f);
             mosquito.Eats(CreatureType.Scavenger, 0.6f);
-            mosquito.AttackedBy(CreatureType.Scavenger, 1f);
-
             mosquito.Eats(CreatureType.LizardTemplate, 0.3f);
-            mosquito.EatenBy(CreatureType.LizardTemplate, 0.2f);
-
             mosquito.Eats(CreatureType.CicadaA, 0.4f);
-            mosquito.EatenBy(CreatureType.CicadaA, 0.2f);
+
+            mosquito.Intimidates(CreatureType.LizardTemplate, 0.35f);
+            mosquito.Intimidates(CreatureType.CicadaA, 0.3f);
+
+            mosquito.AttackedBy(CreatureType.Slugcat, 0.2f);
+            mosquito.AttackedBy(CreatureType.Scavenger, 0.2f);
 
             mosquito.EatenBy(CreatureType.BigSpider, 0.35f);
 
-            mosquito.Fears(CreatureType.Vulture, 0.5f);
             mosquito.Fears(CreatureType.Spider, 0.2f);
             mosquito.Fears(CreatureType.BigSpider, 0.2f);
             mosquito.Fears(CreatureType.SpitterSpider, 0.6f);
         }
 
-        public override ArtificialIntelligence GetRealizedAI(AbstractCreature acrit)
+        public override ArtificialIntelligence GetRealizedAI(AbstractCreature acrit) => new MosquitoAI(acrit);
+        public override Creature GetRealizedCreature(AbstractCreature acrit) => new Mosquito(acrit);
+        public override ItemProperties Properties(PhysicalObject forObject)
         {
-            return new MosquitoAI(acrit);
+            return forObject is Mosquito m ? new MosquitoProperties(m) : null;
         }
 
-        public override Creature GetRealizedCreature(AbstractCreature acrit)
+        sealed class MosquitoProperties : ItemProperties
         {
-            return new Mosquito(acrit);
+            private readonly Mosquito mosquito;
+
+            public MosquitoProperties(Mosquito mosquito)
+            {
+                this.mosquito = mosquito;
+            }
+
+            public override void Grabability(Player player, ref Player.ObjectGrabability grabability)
+            {
+                if (mosquito.State.alive) {
+                    grabability = Player.ObjectGrabability.CantGrab;
+                } else {
+                    grabability = Player.ObjectGrabability.OneHand;
+                }
+            }
+
+            public override void Meat(Player player, ref bool meat)
+            {
+                meat = true;
+            }
         }
     }
 }

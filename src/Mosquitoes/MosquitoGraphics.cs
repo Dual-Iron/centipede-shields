@@ -14,12 +14,7 @@ namespace CentiShields.Mosquitoes
         const float squirmWidth = 0;
         const float squirmAmp = 0;
 
-        //const int UntilSleepDelay = 340;
-        //float squirmAddGetTo;
-        //float squirmWidthGetTo;
-        //float squirmAmpGetTo;
-
-        readonly Mosquito bug;
+        readonly Mosquito mos;
         readonly Vector2[,] body = new Vector2[2, 3];
         readonly float[,] squirm = new float[meshSegs, 3];
         readonly float sizeFac;
@@ -31,34 +26,36 @@ namespace CentiShields.Mosquitoes
         float wingFlap;
         float lastWingFlap;
         RoomPalette roomPalette;
+        ChunkSoundEmitter soundLoop;
 
         readonly TriangleMesh[] m = new TriangleMesh[2]; // mesh sprites 0 and 1
         readonly CustomFSprite[] w = new CustomFSprite[2]; // wing sprites 0 and 1
 
-        public MosquitoGraphics(Mosquito bug) : base(bug, false)
+        public MosquitoGraphics(Mosquito mosquito) : base(mosquito, false)
         {
-            this.bug = bug;
+            mos = mosquito;
 
             int seed = UnityEngine.Random.seed;
-            UnityEngine.Random.seed = bug.abstractCreature.ID.RandomSeed;
-
+            UnityEngine.Random.seed = mosquito.abstractCreature.ID.RandomSeed;
             sizeFac = Custom.ClampedRandomVariation(0.8f, 0.2f, 0.5f);
             body = new Vector2[2, 3];
-
             UnityEngine.Random.seed = seed;
         }
 
         public override void Reset()
         {
             base.Reset();
+
             Vector2 dir = Custom.RNV();
+
             for (int i = 0; i < body.GetLength(0); i++) {
-                body[i, 0] = bug.firstChunk.pos - dir * i;
+                body[i, 0] = mos.firstChunk.pos - dir * i;
                 body[i, 1] = body[i, 0];
                 body[i, 2] *= 0f;
             }
         }
 
+        // TODO make dead mosquito body flop
         public override void Update()
         {
             base.Update();
@@ -66,28 +63,36 @@ namespace CentiShields.Mosquitoes
                 return;
             }
 
+            UpdateSounds();
+
             lastWingFlap = wingFlap;
-            wingFlap += (0.4f + UnityEngine.Random.value * 0.05f) * (bug.Consious && bug.grasps[0] == null ? 1f : 0f);
+
+            if (mos.Consious && mos.grasps[0] == null) {
+                wingFlap += 0.4f + UnityEngine.Random.value * 0.05f;
+            }
 
             for (int i = 0; i < body.GetLength(0); i++) {
                 body[i, 1] = body[i, 0];
                 body[i, 0] += body[i, 2];
-                body[i, 2] *= bug.airFriction;
-                body[i, 2].y -= bug.gravity;
-                body[i, 2] += bug.bloat * -bug.needleDir * 3f;
+                body[i, 2] *= mos.airFriction;
+                body[i, 2].y -= mos.gravity;
+                body[i, 2] += mos.bloat * -mos.needleDir * 3f;
             }
+
             for (int j = 0; j < body.GetLength(0); j++) {
-                SharedPhysics.TerrainCollisionData terrainCollisionData = new(body[j, 0], body[j, 1], body[j, 2], (2.5f - j * 0.5f) * sizeFac, default, bug.firstChunk.goThroughFloors);
-                terrainCollisionData = SharedPhysics.VerticalCollision(bug.room, terrainCollisionData);
-                terrainCollisionData = SharedPhysics.HorizontalCollision(bug.room, terrainCollisionData);
-                terrainCollisionData = SharedPhysics.SlopesVertically(bug.room, terrainCollisionData);
+                SharedPhysics.TerrainCollisionData terrainCollisionData = new(body[j, 0], body[j, 1], body[j, 2], (2.5f - j * 0.5f) * sizeFac, default, mos.firstChunk.goThroughFloors);
+                terrainCollisionData = SharedPhysics.VerticalCollision(mos.room, terrainCollisionData);
+                terrainCollisionData = SharedPhysics.HorizontalCollision(mos.room, terrainCollisionData);
+                terrainCollisionData = SharedPhysics.SlopesVertically(mos.room, terrainCollisionData);
                 body[j, 0] = terrainCollisionData.pos;
                 body[j, 2] = terrainCollisionData.vel;
+
                 if (terrainCollisionData.contactPoint.y < 0) {
                     body[j, 2].x *= 0.4f;
                 }
+
                 if (j == 0) {
-                    Vector2 a = Custom.DirVec(body[j, 0], bug.firstChunk.pos) * (Vector2.Distance(body[j, 0], bug.firstChunk.pos) - 5f * sizeFac);
+                    Vector2 a = Custom.DirVec(body[j, 0], mos.firstChunk.pos) * (Vector2.Distance(body[j, 0], mos.firstChunk.pos) - 5f * sizeFac);
                     body[j, 0] += a;
                     body[j, 2] += a;
                 } else {
@@ -98,17 +103,36 @@ namespace CentiShields.Mosquitoes
                     body[j - 1, 2] -= a * 0.5f;
                 }
             }
-            float d = Mathf.Pow(Mathf.InverseLerp(0.25f, -0.75f, Vector2.Dot((bug.firstChunk.pos - body[0, 0]).normalized, (body[0, 0] - body[1, 0]).normalized)), 2f);
-            body[1, 2] -= Custom.DirVec(body[1, 0], bug.firstChunk.pos) * d * 3f * sizeFac;
-            body[1, 0] -= Custom.DirVec(body[1, 0], bug.firstChunk.pos) * d * 3f * sizeFac;
 
-            bug.needleDir = (bug.needleDir + Custom.DirVec(body[0, 0], bug.firstChunk.pos) * 0.2f).normalized;
+            float d = Mathf.Pow(Mathf.InverseLerp(0.25f, -0.75f, Vector2.Dot((mos.firstChunk.pos - body[0, 0]).normalized, (body[0, 0] - body[1, 0]).normalized)), 2f);
+            body[1, 2] -= Custom.DirVec(body[1, 0], mos.firstChunk.pos) * d * 3f * sizeFac;
+            body[1, 0] -= Custom.DirVec(body[1, 0], mos.firstChunk.pos) * d * 3f * sizeFac;
+
+            mos.needleDir = (mos.needleDir + Custom.DirVec(body[0, 0], mos.firstChunk.pos) * 0.2f).normalized;
 
             squirmOffset += squirmAdd * 0.2f;
 
             for (int k = 0; k < squirm.GetLength(0); k++) {
                 squirm[k, 1] = squirm[k, 0];
-                squirm[k, 0] = Mathf.Sin(squirmOffset + k * Mathf.Lerp(0.5f, 2f, squirmWidth)) * squirmAmp * (1f - bug.bloat);
+                squirm[k, 0] = Mathf.Sin(squirmOffset + k * Mathf.Lerp(0.5f, 2f, squirmWidth)) * squirmAmp * (1f - mos.bloat);
+            }
+        }
+
+        private void UpdateSounds()
+        {
+            if (soundLoop == null && mos.Consious) {
+                soundLoop = mos.room.PlaySound(SoundID.Cicada_Wings_LOOP, mos.firstChunk, true, 1f, 1f);
+                soundLoop.requireActiveUpkeep = true;
+            } else if (soundLoop != null && (!mos.Consious || mos.room != soundLoop.room || soundLoop.slatedForDeletetion)) {
+                soundLoop.alive = false;
+                soundLoop.Destroy();
+                soundLoop = null;
+            }
+
+            if (soundLoop != null) {
+                soundLoop.alive = true;
+                soundLoop.volume = Custom.LerpMap(Mathf.Sin(wingFlap * 0.5f), -1, 1, 0.75f, 0.8f);
+                soundLoop.pitch = Custom.LerpMap(Mathf.Cos(wingFlap * 1.5f), -1, 1, 1.65f, 1.85f);
             }
         }
 
@@ -145,23 +169,23 @@ namespace CentiShields.Mosquitoes
                 return;
             }
 
-            Vector2 chk0Pos = Vector2.Lerp(bug.firstChunk.lastPos, bug.firstChunk.pos, timeStacker);
+            Vector2 chk0Pos = Vector2.Lerp(mos.firstChunk.lastPos, mos.firstChunk.pos, timeStacker);
             Vector2 bodyPos = Vector2.Lerp(body[0, 1], body[0, 0], timeStacker);
             Vector2 headPos = Vector2.Lerp(body[1, 1], body[1, 0], timeStacker);
-            Vector2 segmentDir = -Vector3.Slerp(bug.lastNeedleDir, bug.needleDir, timeStacker);
+            Vector2 segmentDir = -Vector3.Slerp(mos.lastNeedleDir, mos.needleDir, timeStacker);
             Vector2 chkDir = Custom.DirVec(chk0Pos, bodyPos);
             Vector2 bodyDir = Custom.DirVec(bodyPos, headPos);
 
-            if (bug.room != null) {
+            if (mos.room != null) {
                 lastDarkness = darkness;
-                darkness = bug.room.DarknessOfPoint(rCam, bodyPos);
+                darkness = mos.room.DarknessOfPoint(rCam, bodyPos);
                 if (darkness != lastDarkness) {
                     ApplyPalette(sLeaser, rCam, rCam.currentPalette);
                 }
             }
 
             chk0Pos -= segmentDir * 7f * sizeFac;
-            headPos += chkDir * (7f * (1f - bug.bloat)) * sizeFac;
+            headPos += chkDir * (7f * (1f - mos.bloat)) * sizeFac;
             Vector2 vector4 = chk0Pos - segmentDir * 18f;
             Vector2 v = vector4;
             float num = 0f;
@@ -169,25 +193,25 @@ namespace CentiShields.Mosquitoes
             Vector2 a4 = Custom.DegToVec(-45f);
 
             for (int i = 0; i < meshSegs; i++) {
-                float num4 = Mathf.InverseLerp(1f, meshSegs - 1, i);
-                float num5 = i < 2 ? (0.5f + i) : (Custom.LerpMap(num4, 0.5f, 1f, Mathf.Lerp(3f, 2.5f, num4), 1f, 3f) * num2);
-                if (bug.bloat > 0f && i > 1) {
-                    num5 = Mathf.Lerp(num5 * (1.2f + 0.65f * Mathf.Sin(3.1415927f * num4) * bug.bloat * 2f), 1f, (0.5f + 0.5f * squeeze) * Mathf.InverseLerp(1f - squeeze - 0.1f, 1f - squeeze + 0.1f, num4));
+                float iN = Mathf.InverseLerp(1f, meshSegs - 1, i); // i, normalized
+                float num5 = i < 2 ? (0.5f + i) : (Custom.LerpMap(iN, 0.5f, 1f, Mathf.Lerp(3f, 2.5f, iN), 1f, 3f) * num2);
+                if (mos.bloat > 0f && i > 1) {
+                    num5 = Mathf.Lerp(num5 * (1.2f + 0.65f * Mathf.Sin(Mathf.PI * iN) * mos.bloat * 2f), 1f, (0.5f + 0.5f * squeeze) * Mathf.InverseLerp(1f - squeeze - 0.1f, 1f - squeeze + 0.1f, iN));
                 }
                 num5 *= sizeFac;
 
                 Vector2 vector5;
                 if (i == 0) {
                     vector5 = chk0Pos - segmentDir * 4f;
-                } else if (num4 < 0.5f) {
-                    vector5 = Custom.Bezier(chk0Pos, chk0Pos + segmentDir * 2f, bodyPos, bodyPos - chkDir * 4f, Mathf.InverseLerp(0f, 0.5f, num4));
+                } else if (iN < 0.5f) {
+                    vector5 = Custom.Bezier(chk0Pos, chk0Pos + segmentDir * 2f, bodyPos, bodyPos - chkDir * 4f, Mathf.InverseLerp(0f, 0.5f, iN));
                 } else {
-                    vector5 = Custom.Bezier(bodyPos, bodyPos + chkDir * 4f, headPos, headPos - bodyDir * 2f, Mathf.InverseLerp(0.5f, 1f, num4));
+                    vector5 = Custom.Bezier(bodyPos, bodyPos + chkDir * 4f, headPos, headPos - bodyDir * 2f, Mathf.InverseLerp(0.5f, 1f, iN));
                 }
 
                 Vector2 vector6 = vector5;
                 Vector2 a5 = Custom.PerpendicularVector(vector6, v);
-                vector5 += a5 * Mathf.Lerp(squirm[i, 1], squirm[i, 0], timeStacker) * num5 * (num4 * 0.3f + Mathf.Sin(num4 * 3.1415927f));
+                vector5 += a5 * Mathf.Lerp(squirm[i, 1], squirm[i, 0], timeStacker) * num5 * (iN * 0.3f + Mathf.Sin(iN * 3.1415927f));
                 Vector2 a6 = Custom.PerpendicularVector(vector5, vector4);
                 m[0].MoveVertice(i * 4, (vector4 + vector5) / 2f - a6 * (num5 + num) * 0.5f - camPos);
                 m[0].MoveVertice(i * 4 + 1, (vector4 + vector5) / 2f + a6 * (num5 + num) * 0.5f - camPos);
@@ -210,26 +234,11 @@ namespace CentiShields.Mosquitoes
             const float wingsSize = .7f;
 
             for (int m = 0; m < 2; m++) {
-                Vector2 firstChunkPos = Vector2.Lerp(bug.firstChunk.lastPos, bug.firstChunk.pos, timeStacker);
-
-                /*
-				Vector2 vector10 = this.GraphSegmentPos(this.wings[l, m].connection.index + this.snout.Length, timeStacker);
-				if (m == 0)
-				{
-					vector10 = this.GraphSegmentPos(1 + this.snout.Length, timeStacker);
-				}
-				
-                Vector2 vector11 = Vector2.Lerp(this.wings[l, m].lastPos, this.wings[l, m].pos, timeStacker);
-                Vector2 vector11 = vector10 + Custom.PerpendicularVector(a) * (m == 0 ? 1f : -1f) * 1f;
-                Vector2 segmentDir = a;
-                vector10 -= Custom.PerpendicularVector(segmentDir) * wingsSize * 5f * Mathf.Abs(vector3.y) * ((m != 0) ? 1f : -1f);
-                vector11.y -= (18f + 18f * Mathf.Sin((Mathf.Lerp(this.lastWingFlap, this.wingFlap, timeStacker) + ((m != 0) ? 0f : 0.33f)) * 3.1415927f * 2f)) * num * wingsSize;
-                vector11 = vector10 + Custom.DirVec(vector10, vector11) * Mathf.Lerp(40f, 60f, num) * wingsSize;
-                */
+                Vector2 firstChunkPos = Vector2.Lerp(mos.firstChunk.lastPos, mos.firstChunk.pos, timeStacker);
 
                 Vector2 wingVert = firstChunkPos;
 
-                if (bug.Consious && bug.grasps[0] == null) {
+                if (mos.Consious && mos.grasps[0] == null) {
                     Vector2 wingVertOff = new(m == 0 ? 1f : -1f, Mathf.Sin((Mathf.Lerp(lastWingFlap, wingFlap, timeStacker) + (m == 0 ? 0.33f : 0f)) * Mathf.PI * 2f) * .8f);
 
                     wingVert += (wingVertOff + segmentDir * .1f).normalized * wingsSize * 33f;
@@ -238,14 +247,11 @@ namespace CentiShields.Mosquitoes
                 }
 
                 Vector2 offset2 = Vector3.Slerp(Custom.PerpendicularVector(segmentDir) * (m == 0 ? -1f : 1f), new Vector2(m == 0 ? -1f : 1f, 0f), num);
-                // int num7 = (m == 0 != vector3.x > 0f) ? 1 : 0;
 
                 w[m].MoveVertice(1, wingVert + offset2 * 2f * wingsSize - camPos);
                 w[m].MoveVertice(0, wingVert - offset2 * 2f * wingsSize - camPos);
                 w[m].MoveVertice(2, firstChunkPos + offset2 * 2f * wingsSize - camPos);
                 w[m].MoveVertice(3, firstChunkPos - offset2 * 2f * wingsSize - camPos);
-
-                // sLeaser.sprites[2 + m].isVisible = (!this.small || (this.worm as SmallNeedleWorm).bites > 4);
             }
 
             ApplyPalette(sLeaser, rCam, roomPalette);
@@ -269,7 +275,7 @@ namespace CentiShields.Mosquitoes
 
             for (int i = 0; i < m[0].verticeColors.Length; i++) {
                 float value = Mathf.InverseLerp(0f, m[0].verticeColors.Length - 1, i);
-                m[0].verticeColors[i] = Color.Lerp(yellow, to, 0.25f + Mathf.InverseLerp(0f, 0.2f + 0.8f, value) * 0.75f * bug.bloat);
+                m[0].verticeColors[i] = Color.Lerp(yellow, to, 0.25f + Mathf.InverseLerp(0f, 0.2f + 0.8f, value) * 0.75f * mos.bloat);
             }
 
             m[0].verticeColors[0] = wColors;

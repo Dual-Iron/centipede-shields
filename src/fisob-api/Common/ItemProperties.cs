@@ -74,5 +74,13 @@ namespace CFisobs.Common
         /// <param name="player">The player.</param>
         /// <param name="throwable">True if the item can be thrown. Vulture masks, for example, cannot be thrown.</param>
         public virtual void Throwable(Player player, ref bool throwable) { }
+
+        /// <summary>
+        /// This determines if the item gives full pips to the hunter slugcat when eaten.
+        /// </summary>
+        /// <remarks>This is only called if the physical object implements the <see cref="IPlayerEdible"/> interface.</remarks>
+        /// <param name="player">The player.</param>
+        /// <param name="meat">True if the item counts as "meat" in hunter mode.</param>
+        public virtual void Meat(Player player, ref bool meat) { }
     }
 }
