@@ -38,7 +38,7 @@ namespace CFisobs.Common
                 cursor.EmitDelegate(InsertCreatures);
             } catch (Exception e) {
                 Debug.LogException(e);
-                Console.WriteLine($"{nameof(CFisobs)} : Couldn't register fisobs because of exception in {nameof(AddCustomFisobs)}: {e.Message}");
+                Console.WriteLine($"Couldn't register fisobs in \"{nameof(CFisobs)}\" because of exception in {nameof(AddCustomFisobs)}: {e.Message}");
             }
         }
 
@@ -101,17 +101,6 @@ namespace CFisobs.Common
             orig(self, menu, owner, overlayOwner);
         }
 
-        private bool IsUnlocked(On.MultiplayerUnlocks.orig_SandboxItemUnlocked orig, MultiplayerUnlocks self, MultiplayerUnlocks.SandboxUnlockID unlockID)
-        {
-            foreach (var common in all) {
-                var unlock = common.SandboxUnlocks.FirstOrDefault(s => s.Type == unlockID);
-                if (unlock != null) {
-                    return unlock.IsUnlocked(self);
-                }
-            }
-            return orig(self, unlockID);
-        }
-
         private void SpawnEntity(On.SandboxGameSession.orig_SpawnEntity orig, SandboxGameSession self, SandboxEditor.PlacedIconData p)
         {
             EntityID id = self.GameTypeSetup.saveCreatures ? p.ID : self.game.GetNewID();
@@ -165,6 +154,46 @@ namespace CFisobs.Common
                 Debug.LogException(e);
                 Debug.LogError($"The sandbox unlock \"{unlock.Type}\" threw an exception when being parsed in sandbox mode.");
             }
+        }
+
+        private bool IsUnlocked(On.MultiplayerUnlocks.orig_SandboxItemUnlocked orig, MultiplayerUnlocks self, MultiplayerUnlocks.SandboxUnlockID unlockID)
+        {
+            foreach (var common in all) {
+                var unlock = common.SandboxUnlocks.FirstOrDefault(s => s.Type == unlockID);
+                if (unlock != null) {
+                    return unlock.IsUnlocked(self);
+                }
+            }
+            return orig(self, unlockID);
+        }
+
+        private IconSymbol.IconSymbolData FromUnlock(On.MultiplayerUnlocks.orig_SymbolDataForSandboxUnlock orig, MultiplayerUnlocks.SandboxUnlockID unlockID)
+        {
+            try {
+                return orig(unlockID);
+            } catch (ArgumentException) {
+                foreach (var common in all) {
+                    var unlock = common.SandboxUnlocks.FirstOrDefault(u => u.Type == unlockID);
+                    if (unlock != null) {
+                        return new(common.Type.RightOr(0), common.Type.LeftOr(0), unlock.Data);
+                    }
+                }
+                throw;
+            }
+        }
+
+        private MultiplayerUnlocks.SandboxUnlockID FromSymbolData(On.MultiplayerUnlocks.orig_SandboxUnlockForSymbolData orig, IconSymbol.IconSymbolData data)
+        {
+            if (data.itemType < 0 || data.itemType > AbstractPhysicalObject.AbstractObjectType.OverseerCarcass) {
+                if (items.TryGetValue(data.itemType, out var item) && item.SandboxUnlocks.FirstOrDefault(u => u.Data == data.intData) is SandboxUnlock unlock) {
+                    return unlock.Type;
+                }
+            } else if (data.critType < 0 || data.critType > CreatureTemplate.Type.Hazer) {
+                if (crits.TryGetValue(data.critType, out var crit) && crit.SandboxUnlocks.FirstOrDefault(u => u.Data == data.intData) is SandboxUnlock unlock) {
+                    return unlock.Type;
+                }
+            }
+            return orig(data);
         }
     }
 }

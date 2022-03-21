@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using ObjectType = AbstractPhysicalObject.AbstractObjectType;
 using CreatureType = CreatureTemplate.Type;
 using System.Linq;
+using System;
+using UnityEngine;
 
 namespace CFisobs.Common
 {
@@ -38,17 +40,23 @@ namespace CFisobs.Common
             On.ScavengerAI.CollectScore_PhysicalObject_bool += ScavengerAI_CollectScore_PhysicalObject_bool;
             IL.Player.ObjectEaten += Player_ObjectEaten;
 
-            // Sandbox
-            if (all.Any(c => c.SandboxUnlocks.Count > 0)) {
+            bool sandboxCritobs = crits.Values.Any(c => c.SandboxUnlocks.Count > 0);
+            bool sandboxAny = sandboxCritobs || all.Any(c => c.SandboxUnlocks.Count > 0);
+
+            // Sandbox bits that apply to both items and creatures
+            if (sandboxAny) {
                 IL.Menu.SandboxEditorSelector.ctor += AddCustomFisobs;
                 On.Menu.SandboxEditorSelector.ctor += ResetWidthAndHeight;
                 On.SandboxGameSession.SpawnEntity += SpawnEntity;
                 On.MultiplayerUnlocks.SandboxItemUnlocked += IsUnlocked;
+                On.MultiplayerUnlocks.SymbolDataForSandboxUnlock += FromUnlock;
+                On.MultiplayerUnlocks.SandboxUnlockForSymbolData += FromSymbolData;
             }
 
-            // Sandbox (creatures specifically)
-            if (crits.Values.Any(c => c.SandboxUnlocks.Count > 0)) {
-
+            // Sandbox bits that apply to creatures only
+            if (sandboxCritobs) {
+                On.Menu.SandboxSettingsInterface.ctor += AddPages;
+                On.Menu.SandboxSettingsInterface.DefaultKillScores += DefaultKillScores;
             }
         }
 

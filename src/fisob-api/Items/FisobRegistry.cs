@@ -85,21 +85,22 @@ namespace CFisobs.Items
                     int.TryParse(coordParts[3], out int node)) {
                     coord = new WorldCoordinate(room, x, y, node);
                 } else {
-                    Debug.LogError($"{nameof(CFisobs)} : Corrupt world coordinate on object \"{id}\", type \"{o.Type}\"");
+                    Debug.LogError($"Corrupt world coordinate on object \"{id}\", type \"{o.Type}\".");
                     return null;
                 }
 
                 string customData = data.Length == 4 ? data[3] : "";
 
                 if (data.Length > 4) {
-                    Debug.LogError($"{nameof(CFisobs)} : Save data had more than 4 <oA> sections in \"{o.Type}\". Override `APO.ToString()` to return `this.SaveAsString(...)`.");
+                    Debug.LogError($"Save data had more than 4 <oA> sections in fisob \"{o.Type}\". Override `APO.ToString()` to return `this.SaveAsString(...)`.");
                     return null;
                 }
 
                 try {
                     return o.Parse(world, new EntitySaveData(o.Type, id, coord, customData), null);
                 } catch (Exception e) {
-                    Debug.LogError($"{nameof(CFisobs)} : {e}");
+                    Debug.LogException(e);
+                    Debug.LogError($"An exception was thrown in {o.GetType().FullName}::Parse: {e.Message}");
                     return null;
                 }
             }

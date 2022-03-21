@@ -80,7 +80,7 @@ namespace CFisobs.Common
 
             } catch (Exception e) {
                 Debug.LogException(e);
-                Console.WriteLine($"{nameof(CFisobs)} : Couldn't register fisobs because of exception in {nameof(Player_ObjectEaten)}: {e.Message}");
+                Console.WriteLine($"Couldn't register fisobs in \"{nameof(CFisobs)}\" because of exception in {nameof(Player_ObjectEaten)}: {e.Message}");
             }
         }
 

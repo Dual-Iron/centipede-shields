@@ -53,9 +53,7 @@ namespace CFisobs.Creatures
 
         private void RegisterCustomCreatures()
         {
-            var types = (CreatureType[])Enum.GetValues(typeof(CreatureType));
-            var oldTemplatesCount = StaticWorld.creatureTemplates.Length;
-            var newTemplates = new List<CreatureTemplate>(types.Length - oldTemplatesCount);
+            var newTemplates = new List<CreatureTemplate>();
 
             // Get new critob templates
             foreach (Critob critob in critobs.Values) {
@@ -72,7 +70,7 @@ namespace CFisobs.Creatures
             }
 
             // Add new critob templates to StaticWorld.creatureTemplates
-            Array.Resize(ref StaticWorld.creatureTemplates, oldTemplatesCount + newTemplates.Count);
+            Array.Resize(ref StaticWorld.creatureTemplates, StaticWorld.creatureTemplates.Length + newTemplates.Count);
 
             foreach (CreatureTemplate extraTemplate in newTemplates) {
                 // Make sure we're not overwriting vanilla or causing index-out-of-bound errors
