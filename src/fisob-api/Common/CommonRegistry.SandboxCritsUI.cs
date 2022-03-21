@@ -88,14 +88,10 @@ namespace CFisobs.Common
 
             public override void Singal(MenuObject sender, string message)
             {
+                // Pressed a page button
                 if (sender is PageButton pageButton && rowOffset + pageButton.dir >= RowMin && rowOffset + pageButton.dir <= RowMax) {
-                    IncrementPage(pageButton.dir);
+                    rowOffset += pageButton.dir;
                 }
-            }
-
-            void IncrementPage(int dir)
-            {
-                rowOffset += dir;
             }
 
             public override void GrafUpdate(float timeStacker)
@@ -112,26 +108,26 @@ namespace CFisobs.Common
                     int x = i / rows;
                     int y = i % rows;
 
+                    if (x > 2) {
+                        continue;
+                    }
+
                     ScoreController score = owner.scoreControllers[index];
                     score.pos.x = x * xOffset;
-                    score.pos.y = y * yOffset;
+                    score.pos.y = y * yOffset - rowSmoothed * yOffset;
 
-                    if (x < 3) {
-                        score.pos.y -= rowSmoothed * yOffset;
+                    float offsetToRow0 = 0 - (y - rowSmoothed);
+                    float offsetToRow8 = 8 - (y - rowSmoothed);
+                    float alpha = 1 - Mathf.Max(offsetToRow0, -offsetToRow8);
 
-                        float offsetToRow0 = 0 - (y - rowSmoothed);
-                        float offsetToRow8 = 8 - (y - rowSmoothed);
-                        float alpha = 1 - Mathf.Max(offsetToRow0, -offsetToRow8);
+                    SetAlpha(score, Mathf.Pow(Mathf.Clamp01(alpha), 2));
 
-                        SetAlpha(score, Mathf.Pow(Mathf.Clamp01(alpha), 2));
-
-                        if (alpha < 0.99f) {
-                            score.page.selectables.Remove(score.scoreDragger);
-                        } else if (score.page.selectables.LastIndexOf(score.scoreDragger) == -1) {
-                            // LastIndexOf makes it search in reverse, which will be significantly faster since these
-                            // will tend to be towards the end of the selectables list.
-                            score.page.selectables.Add(score.scoreDragger);
-                        }
+                    if (alpha < 0.99f) {
+                        score.page.selectables.Remove(score.scoreDragger);
+                    } else if (score.page.selectables.LastIndexOf(score.scoreDragger) == -1) {
+                        // LastIndexOf makes it search in reverse, which will be significantly faster since these
+                        // will tend to be towards the end of the selectables list.
+                        score.page.selectables.Add(score.scoreDragger);
                     }
                 }
 
@@ -140,7 +136,9 @@ namespace CFisobs.Common
 
             void SetAlpha(ScoreController score, float alpha)
             {
-                if (score?.scoreDragger == null) return;
+                if (score?.scoreDragger == null) {
+                    return;
+                }
 
                 score.scoreDragger.buttonBehav.greyedOut = alpha < 0.5f;
                 score.scoreDragger.label.label.alpha = alpha;
