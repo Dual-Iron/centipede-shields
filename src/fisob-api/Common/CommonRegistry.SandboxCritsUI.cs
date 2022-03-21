@@ -55,8 +55,11 @@ namespace CFisobs.Common
             private readonly PageButton left;
             private readonly PageButton right;
 
+            const int Columns = 3;
             const int RowMin = 0;
-            int RowMax => Mathf.CeilToInt((owner.scoreControllers.Count + 1) / 4f) - 9;
+
+            int Rows => Mathf.CeilToInt((owner.scoreControllers.Count - 3) / (float)Columns); // ceil(slots_used / column_count)
+            int RowMax => Rows - 9;
 
             int rowOffset;
             float rowSmoothed;
@@ -67,8 +70,8 @@ namespace CFisobs.Common
 
                 float xOffset = 88.666f + 0.01f;
 
-                subObjects.Add(left = new PageButton(this, -1, new(xOffset * 1f, -280f)));
-                subObjects.Add(right = new PageButton(this, 1, new(xOffset * 2f, -280f)));
+                subObjects.Add(left = new PageButton(this, -1, new(xOffset * 3f, yOffset * 0f)));
+                subObjects.Add(right = new PageButton(this, 1, new(xOffset * 3f, yOffset * 1f)));
             }
 
             public override string ToString() => $"{paginatorKey}{paginatorVersion}";
@@ -97,9 +100,7 @@ namespace CFisobs.Common
 
             public override void GrafUpdate(float timeStacker)
             {
-                int slots = owner.scoreControllers.Count + 1;
-                int columns = 4;
-                int rows = Mathf.CeilToInt(slots / (float)columns); // vanilla has 9
+                int rows = Rows;
 
                 for (int index = 0; index < owner.scoreControllers.Count; index++) {
                     // Skip static slots (null, Food, Survive, and Spear hit)
@@ -120,9 +121,17 @@ namespace CFisobs.Common
 
                         float offsetToRow0 = 0 - (y - rowSmoothed);
                         float offsetToRow8 = 8 - (y - rowSmoothed);
-                        float fade = 1 - Mathf.Max(offsetToRow0, -offsetToRow8);
+                        float alpha = 1 - Mathf.Max(offsetToRow0, -offsetToRow8);
 
-                        SetAlpha(score, Mathf.Pow(Mathf.Clamp01(fade), 2));
+                        SetAlpha(score, Mathf.Pow(Mathf.Clamp01(alpha), 2));
+
+                        if (alpha < 0.99f) {
+                            score.page.selectables.Remove(score.scoreDragger);
+                        } else if (score.page.selectables.LastIndexOf(score.scoreDragger) == -1) {
+                            // LastIndexOf makes it search in reverse, which will be significantly faster since these
+                            // will tend to be towards the end of the selectables list.
+                            score.page.selectables.Add(score.scoreDragger);
+                        }
                     }
                 }
 
@@ -133,7 +142,7 @@ namespace CFisobs.Common
             {
                 if (score?.scoreDragger == null) return;
 
-                score.scoreDragger.buttonBehav.greyedOut = alpha < 0.9f;
+                score.scoreDragger.buttonBehav.greyedOut = alpha < 0.5f;
                 score.scoreDragger.label.label.alpha = alpha;
                 foreach (var sprite in score.scoreDragger.roundedRect.sprites) {
                     sprite.alpha = alpha;
