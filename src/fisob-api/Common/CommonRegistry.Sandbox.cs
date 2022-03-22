@@ -66,7 +66,7 @@ namespace CFisobs.Common
 
                     Button button;
                     if (self.unlocks.SandboxItemUnlocked(unlock.Type)) {
-                        button = new CreatureOrItemButton(self.menu, self, new IconSymbol.IconSymbolData(common.Type.RightOr(0), common.Type.LeftOr(0), unlock.Data));
+                        button = new CreatureOrItemButton(self.menu, self, new(common.Type.CritType, common.Type.ObjectType, unlock.Data));
                     } else {
                         button = new LockedButton(self.menu, self);
                     }
@@ -175,7 +175,7 @@ namespace CFisobs.Common
                 foreach (var common in all) {
                     var unlock = common.SandboxUnlocks.FirstOrDefault(u => u.Type == unlockID);
                     if (unlock != null) {
-                        return new(common.Type.RightOr(0), common.Type.LeftOr(0), unlock.Data);
+                        return new(common.Type.CritType, common.Type.ObjectType, unlock.Data);
                     }
                 }
                 throw;

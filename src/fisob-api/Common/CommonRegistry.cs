@@ -21,10 +21,10 @@ namespace CFisobs.Common
         {
             if (entry is ICommon common) {
                 all.Add(common);
-                if (common.Type.MatchL(out var objectType)) {
-                    items[objectType] = common;
-                } else if (common.Type.MatchR(out var creatureType)) {
-                    crits[creatureType] = common;
+                if (common.Type.ObjectType != 0) {
+                    items[common.Type.ObjectType] = common;
+                } else if (common.Type.CritType != 0) {
+                    crits[common.Type.CritType] = common;
                 }
             }
         }

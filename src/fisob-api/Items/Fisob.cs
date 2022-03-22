@@ -37,7 +37,7 @@ namespace CFisobs.Items
             sandboxUnlocks.Add(unlock);
         }
 
-        Either<ObjectType, CreatureTemplate.Type> ICommon.Type => Type;
+        PhysobType ICommon.Type => Type;
 
         IList<SandboxUnlock> ICommon.SandboxUnlocks => sandboxUnlocks;
 

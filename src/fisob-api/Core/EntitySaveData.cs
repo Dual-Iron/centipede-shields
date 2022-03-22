@@ -9,7 +9,7 @@ namespace CFisobs.Core
     /// </summary>
     public readonly struct EntitySaveData
     {
-        private readonly Either<AbstractPhysicalObject.AbstractObjectType, CreatureTemplate.Type> type;
+        private readonly PhysobType type;
 
         /// <summary>
         /// The APO's ID.
@@ -31,7 +31,7 @@ namespace CFisobs.Core
         /// Initializes a new instance of the <see cref="EntitySaveData"/> struct.
         /// </summary>
         /// <remarks>Do not use this constructor. Call <see cref="CreateFrom(AbstractPhysicalObject, string)"/> instead.</remarks>
-        internal EntitySaveData(Either<AbstractPhysicalObject.AbstractObjectType, CreatureTemplate.Type> type, EntityID id, WorldCoordinate pos, string customData)
+        internal EntitySaveData(PhysobType type, EntityID id, WorldCoordinate pos, string customData)
         {
             this.type = type;
             ID = id;
@@ -76,13 +76,13 @@ namespace CFisobs.Core
         /// <returns>A string representation of this data.</returns>
         public override string ToString()
         {
-            if (type.MatchR(out var critType)) {
-                return $"{critType}<cA>{ID}<cA>{Pos.room}.{Pos.abstractNode}<cA>{CustomData}";
+            if (type.CritType != 0) {
+                return $"{type.CritType}<cA>{ID}<cA>{Pos.room}.{Pos.abstractNode}<cA>{CustomData}";
             }
-            if (type.MatchL(out var objectType)) {
+            if (type.ObjectType != 0) {
                 string customDataStr = string.IsNullOrEmpty(CustomData) ? "" : $"<oA>{CustomData}";
 
-                return $"{ID}<oA>{objectType}<oA>{Pos.room}.{Pos.x}.{Pos.y}.{Pos.abstractNode}{customDataStr}";
+                return $"{ID}<oA>{type.ObjectType}<oA>{Pos.room}.{Pos.x}.{Pos.y}.{Pos.abstractNode}{customDataStr}";
             }
             return "";
         }

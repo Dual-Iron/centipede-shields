@@ -21,12 +21,6 @@ namespace CFisobs.Common
         const string paginatorKey = "paginator";
         const int paginatorKeyLength = 9; // paginatorKey.Length
 
-        struct ScoreElement
-        {
-            public int I;
-            public ScoreController C;
-        }
-
         sealed class PageButton : SymbolButton
         {
             public readonly int dir;

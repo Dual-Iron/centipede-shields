@@ -6,7 +6,7 @@ namespace CFisobs.Common
 {
     public interface ICommon
     {
-        Either<AbstractPhysicalObject.AbstractObjectType, CreatureTemplate.Type> Type { get; }
+        PhysobType Type { get; }
         IList<SandboxUnlock> SandboxUnlocks { get; }
 
         ItemProperties? Properties(PhysicalObject forObject);
