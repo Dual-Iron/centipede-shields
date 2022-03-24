@@ -1,5 +1,3 @@
-When a centipede's shell breaks off, it can become an item you can pick up and use as a shield.
+Go to the main Fisobs repository.
 
-Download the mod [here](https://github.com/Dual-Iron/centipede-shields/releases/latest). See a demo [here](https://youtu.be/pt466Bwf_xg).
-
-Depends on EnumExtender.
+https://github.com/Dual-Iron/fisob-api
